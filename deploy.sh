@@ -4,9 +4,11 @@
 # self-contained. Composes two repo sources into one installed skill; re-run to reinstall
 # after editing either. Diagnostics -> stderr; stdout stays empty (no payload).
 #
-# Sources (SSOT, tracked):  <repo>/skill/   (SKILL.md, references/)
-#                           <repo>/engine/  (cli.py + modules)
-# Dest (install):           ~/.claude/skills/keel/  (SKILL.md, references/, scripts/)
+# Sources (SSOT, tracked):  <repo>/skill/       (SKILL.md, references/)
+#                           <repo>/engine/      (cli.py + modules)
+#                           <repo>/completion/  (_keel, zsh)
+# Dest (install):           ~/.claude/skills/keel/           (SKILL.md, references/, scripts/)
+#                           <oh-my-zsh custom>/completions/   (symlink to _keel, best-effort)
 #
 # Requires: rsync, python3. ripgrep (rg) is needed at RUNTIME for refs/check/status.
 set -euo pipefail
@@ -38,3 +40,25 @@ python3 "$DEST/scripts/cli.py" -h >/dev/null || { echo "ERROR: smoke test failed
 
 echo "  installed keel skill -> $DEST" >&2
 echo '  OK: python3 ${CLAUDE_SKILL_DIR}/scripts/cli.py -h runs; references/schema.md present' >&2
+
+# 3. zsh completion, best-effort: keel works fine without it, this only adds tab-completion
+# for slice/slug args. Symlinked (not copied), so editing completion/_keel takes effect on
+# the next shell, same as the ~/.local/bin/keel PATH shim. Only oh-my-zsh is auto-detected
+# (its custom/completions dir is already on $fpath with compinit wired up); anything else
+# gets a manual one-liner instead of a guessed-at fpath location.
+COMPLETION_SRC="$REPO_DIR/completion/_keel"
+COMPLETION_DEST_DIR=""
+if [ -n "${ZSH_CUSTOM:-}" ]; then
+    COMPLETION_DEST_DIR="$ZSH_CUSTOM/completions"
+elif [ -d "$HOME/.oh-my-zsh" ]; then
+    COMPLETION_DEST_DIR="$HOME/.oh-my-zsh/custom/completions"
+fi
+
+if [ -n "$COMPLETION_DEST_DIR" ]; then
+    mkdir -p "$COMPLETION_DEST_DIR"
+    ln -sf "$COMPLETION_SRC" "$COMPLETION_DEST_DIR/_keel"
+    echo "  installed zsh completion -> $COMPLETION_DEST_DIR/_keel (new shells pick it up)" >&2
+else
+    echo "  zsh completion not auto-installed (no oh-my-zsh detected)." >&2
+    echo "  to enable: add 'fpath+=($REPO_DIR/completion)' before compinit in your .zshrc." >&2
+fi

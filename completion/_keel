@@ -1,0 +1,54 @@
+#compdef keel
+# ABOUTME: zsh completion for keel - completes subcommand names, and for the commands
+# that take a slice/slug arg, the current repo's .toons/<slug> names (via the hidden
+# `keel --list-slugs` helper in cli.py). Slugs are the ONLY candidates when any exist -
+# mixing them with generic file/dir completion just buries them alphabetically among
+# every sibling directory in the repo. Plain-dir repos (no .toons/, e.g. examples/) fall
+# back to normal path completion since there are no slugs to offer.
+
+_keel() {
+  local -a subcmds slugs
+
+  subcmds=(
+    'render:human view (G2)'
+    'lint:graph-internal consistency gate'
+    'refs:graph<->code drift gate (ripgrep)'
+    'status:divergence dashboard'
+    'check:lint + refs, the loop CHECK step'
+    'pack:1-hop edit context for a node'
+    'find:which .toons container anchors a file'
+    'new:scaffold a fresh .toons/<slug> container'
+    'view:materialize a live .view.md preview'
+    'watch:poll .toons, refresh previews + lint on change'
+    'index:derived repo-wide roll-up + slug invariant'
+  )
+
+  if (( CURRENT == 2 )); then
+    _describe -t commands 'keel command' subcmds
+    return
+  fi
+
+  case ${words[2]} in
+    render|lint|refs|status|check|pack|view|watch)
+      slugs=(${(f)"$(keel --list-slugs 2>/dev/null)"})
+      if (( ${#slugs} )); then
+        _describe -t slugs 'toon slug' slugs
+      elif [[ ${words[2]} == (view|watch) ]]; then
+        _files -/
+      else
+        _files -g '*.graph.toon'
+      fi
+      ;;
+    find)
+      _files
+      ;;
+    new)
+      _files -/
+      ;;
+    *)
+      _files
+      ;;
+  esac
+}
+
+_keel "$@"

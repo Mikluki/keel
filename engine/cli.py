@@ -72,6 +72,14 @@ def docstring(script):
 
 
 def main():
+    if len(sys.argv) >= 2 and sys.argv[1] == '--list-slugs':
+        # Shell-completion helper (see completion/_keel) - deliberately absent from -h/-hh,
+        # it is not a loop command, just the current repo's .toons/ slugs, one per line.
+        toons = containers.find_toons_root()
+        if toons is not None:
+            for d in containers.iter_containers(toons):
+                print(d.name)
+        return
     if len(sys.argv) >= 2 and sys.argv[1] == '-hh':
         print((__doc__ or '') + HUMAN_HELP)   # full listing incl. the human/setup commands
         return

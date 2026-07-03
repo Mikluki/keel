@@ -84,6 +84,7 @@ and 10 are argument-layer fixes in `cli.py`; 7 is the opt-in `watch` monitor.
       SKILL.md       teaches the loop; invokes ${CLAUDE_SKILL_DIR}/scripts/cli.py
       references/    schema.md - the full TOON graph grammar reference
     deploy.sh      install skill/ + engine/ -> ~/.claude/skills/keel/ (real copy; re-run = reinstall)
+                   also symlinks completion/_keel onto $fpath (oh-my-zsh auto-detected)
     engine/        the agnostic tool (code only, no domain words)
       cli.py         entry point (-h: render|lint|refs|status|check|pack|find|new; -hh adds view|index|watch)
       render.py      G2: parse/union + 3 view primitives (table / join / detail)
@@ -101,6 +102,7 @@ and 10 are argument-layer fixes in `cli.py`; 7 is the opt-in `watch` monitor.
     examples/      demos that exercise the engine (smoke tests; plain dirs, NOT containers)
       auth.graph.toon    agnosticism: a non-RNG vocabulary
       refs/              ref-resolve demo: refs.graph.toon + fixtures/{degraded.rs,sample.py}
+    completion/    _keel - zsh tab-completion (subcommands + this repo's .toons/ slugs)
 
 ## Run (dev: from this repo's root; installed: `keel <cmd> ...`)
     python engine/cli.py new    <src-anchor>                # scaffold a fresh container (cold start)
