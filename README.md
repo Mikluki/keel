@@ -1,13 +1,38 @@
 # keel - a spec as a cacheable graph, not a wall of prose
 
+A design doc starts true and rots: code moves, the doc doesn't, and handing the whole
+thing to a coding agent burns context on prose that may no longer hold - with no way to
+see which lines are still the source of truth.
+
+**keel** keeps a spec's durable *structure* - intent, decisions, invariants, and how
+things reference each other - as a small graph, and pins the volatile parts (logic,
+numbers) as `ref`s into the real code. The graph is a cache: a logic change leaves it
+untouched, a structural change invalidates it, and `check` tells you which drifted. An
+agent packs one node's 1-hop slice instead of the whole document; the human-readable
+spec is *rendered* from the graph, never hand-edited. Built agent-first - every command
+speaks TOON and the [10 AXI principles](#agent-facing-output-the-10-axi-principles) for
+token-lean, drift-aware output.
+
 A **domain-agnostic** engine: it knows only `nodes` (rows with an `id`), `edges`,
 `views`, and `rules`. What node/edge KINDS exist and which VIEWS to draw are declared
 as data in the `.toon` slices - the engine contains no domain vocabulary. Edit the
 graph; the human spec/views are rendered from it (never hand-edited).
 
-## Principles
+## Contents
 
-### SSOT lifecycle - one truth, a disposable seed
+- [Principles](#principles)
+  - [SSOT lifecycle](#ssot-lifecycle---one-truth-a-disposable-seed)
+  - [Node lifecycle](#node-lifecycle---two-axes-add-explore-then-decide)
+  - [Agent-facing output (the 10 AXI principles)](#agent-facing-output-the-10-axi-principles)
+- [Layout](#layout)
+- [Run](#run)
+- [Containers](#containers---where-toons-live-in-a-large-repo)
+- [Modeling rules](#modeling-rules)
+- [Proof it is algorithm-agnostic](#proof-it-is-algorithm-agnostic)
+
+# Principles
+
+## SSOT lifecycle - one truth, a disposable seed
 A design `.md` is fuel, not truth: burned once at init, then archived.
 
     design.md ─absorb─► toon ─scaffold─► code
@@ -23,7 +48,7 @@ A design `.md` is fuel, not truth: burned once at init, then archived.
   (unresolved `ref -> code` are listed, not failed); the moment code lands, code is
   SSOT permanently.
 
-### Node lifecycle - two axes, add-explore-then-decide
+## Node lifecycle - two axes, add-explore-then-decide
 A node carries two orthogonal states so "am I keeping this?" never gets confused with
 "is it built?":
 
@@ -45,7 +70,7 @@ the bodies appendix by state (`# Canon`/`# Explore`/`# Dropped`, rejected last);
 fails a canon node that depends on an explore/dropped one (you pulled the rug) or a typo'd
 `state` value.
 
-### Agent-facing output (the 10 AXI principles)
+## Agent-facing output (the 10 AXI principles)
 Design targets for the CLI, now met. The shared `emit` helper carries 1+3+4+5+9 (TOON
 body, size-hinted truncation, count header, explicit empty states, trailing `next:`); 6
 and 10 are argument-layer fixes in `cli.py`; 7 is the opt-in `watch` monitor.
@@ -79,7 +104,7 @@ and 10 are argument-layer fixes in `cli.py`; 7 is the opt-in `watch` monitor.
 10. **Consistent help** - concise per-subcommand reference for when agents need it.
     - [x] `<cmd> -h/--help` prints that module's docstring (via `cli.py docstring`).
 
-## Layout
+# Layout
     skill/         the Claude skill SOURCE (composed into the install by deploy.sh)
       SKILL.md       teaches the loop; invokes ${CLAUDE_SKILL_DIR}/scripts/cli.py
       references/    schema.md - the full TOON graph grammar reference
@@ -104,7 +129,9 @@ and 10 are argument-layer fixes in `cli.py`; 7 is the opt-in `watch` monitor.
       refs/              ref-resolve demo: refs.graph.toon + fixtures/{degraded.rs,sample.py}
     completion/    _keel - zsh tab-completion (subcommands + this repo's .toons/ slugs)
 
-## Run (dev: from this repo's root; installed: `keel <cmd> ...`)
+# Run
+Dev form (from this repo's root) is shown below; installed, swap `python engine/cli.py` for `keel`:
+
     python engine/cli.py new    <src-anchor>                # scaffold a fresh container (cold start)
     python engine/cli.py find   <src-file>                  # source -> its container (front door)
     python engine/cli.py pack   <node> <target dir>         # a node's 1-hop edit context (PICK)
@@ -120,7 +147,7 @@ separate from the graph dir. Query commands take `--toon` (structured body for a
 `--full` (no truncation), and `-h`/`--help` (its own reference); `new` / `view` / `index` /
 `watch` write files (a new container, a preview, the roll-up, the watch status).
 
-## Containers - where toons live in a large repo
+# Containers - where toons live in a large repo
 Don't map the whole repo, only the IDEA LAYER that needs focused attention (a dense
 module, a cross-cutting concept). Each concept is a container under a single `.toons/` dir
 at the repo core; a container IS a graph dir, so the engine runs on it unchanged.
@@ -168,7 +195,7 @@ Source-code edits are NOT watched (that would mean scanning the whole code root)
 drift is a pull-time gate. Run `check`/`refs` at RECONCILE, and use `find <source-path>` to map
 a file you are about to edit to its container.
 
-## Modeling rules
+# Modeling rules
     node       = anything referenced elsewhere (else it is body text, not a node)
     column     = a literal ATTRIBUTE (card, severity) - never a reference
     state      = the `state` column: a node's commitment lane (explore/canon/dropped,
@@ -177,7 +204,7 @@ a file you are about to edit to its container.
                  typo'd target generically, with no domain code
     canonical  = intent + structure + decisions + invariants; logic/numbers are refs->code
 
-## Proof it is algorithm-agnostic
+# Proof it is algorithm-agnostic
 `examples/auth.graph.toon` models a web-auth spec (components / policies / an invariant) with
 node and edge kinds the engine has never heard of, yet it renders and lints through the exact
 same engine - zero engine changes. A spec may be partial: unresolved cross-slice refs are
