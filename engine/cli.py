@@ -1,0 +1,101 @@
+#!/usr/bin/env python3
+"""keel - one entry point for the spec-graph loop tools.
+
+    keel render  [slices...]            human view (Generate-2)
+    keel lint    [slices...]            graph-internal consistency gate
+    keel refs    [slices...] --root R   graph<->code drift gate (ripgrep)
+    keel status  [slices...] --root R   divergence dashboard
+    keel check   [slices...] --root R   lint + refs (the loop's CHECK step)
+    keel pack    <node> [slices...]     a node's 1-hop edit context (PICK step)
+    keel find    <source-path>          which .toons/ container anchors a file
+    keel new     <anchor> [--root R]    scaffold a fresh .toons/<slug>/ (cold start)
+
+slices default to *.graph.toon in the cwd; a directory arg is globbed. In a repo with a
+`.toons/` dir, a bare `<slug>` (e.g. `check scripts-viz-lenses`) resolves to that
+container and defaults --root to the repo root - no long paths on every call.
+--root is the CODE root for ref resolution (your crate/package).
+Every command takes --toon (structured body) and -h/--help (its own reference); -hh also
+lists the human/setup commands (view, index, watch).
+
+Output convention (deliberate exception to the repo's logging rule): stdout is PAYLOAD -
+the agent-facing data / return value - so it stays pure and TOON-able and pipes cleanly.
+Diagnostics and errors go to stderr. Never route payload through logging.
+"""
+import ast
+import runpy
+import sys
+from pathlib import Path
+
+import emit
+import containers
+
+HERE = Path(__file__).resolve().parent
+# view / index / watch are HUMAN commands: each dispatches and has its own -h, but is kept OUT
+# of the agent-facing -h listing (shown only under -hh) to keep the agent's context lean - they
+# produce a preview / a roll-up / a live monitor, none part of the pull-based agent loop.
+SCRIPTS = {'render': 'render.py', 'view': 'view.py', 'lint': 'lint.py', 'refs': 'refs.py',
+           'status': 'status.py', 'pack': 'pack.py', 'index': 'index.py',
+           'find': 'find.py', 'new': 'new.py', 'watch': 'watch.py'}
+
+HUMAN_HELP = """
+Human / setup commands (kept out of -h to keep the agent loop lean):
+
+    keel view    [dir]                  materialize a graph dir's render -> <name>.view.md preview
+    keel index   [.toons dir]           derived repo-wide roll-up + slug invariant
+    keel watch   [dir]                  live: poll .toons/, refresh previews + lint on change
+"""
+
+
+def run(script, argv):
+    sys.argv = [script, *argv]
+    try:
+        runpy.run_path(str(HERE / script), run_name='__main__')
+        return 0
+    except SystemExit as e:
+        return e.code if isinstance(e.code, int) else (1 if e.code else 0)
+
+
+def strip_root(argv):
+    out, i = [], 0
+    while i < len(argv):
+        if argv[i] == '--root':
+            i += 2
+        else:
+            out.append(argv[i])
+            i += 1
+    return out
+
+
+def docstring(script):
+    """A subcommand's own help = its module docstring (P10), read without importing."""
+    return ast.get_docstring(ast.parse((HERE / script).read_text())) or f"(no help for {script})"
+
+
+def main():
+    if len(sys.argv) >= 2 and sys.argv[1] == '-hh':
+        print((__doc__ or '') + HUMAN_HELP)   # full listing incl. the human/setup commands
+        return
+    if len(sys.argv) < 2 or sys.argv[1] in ('-h', '--help'):
+        print(__doc__)
+        return
+    cmd, rest = sys.argv[1], sys.argv[2:]
+    wants_help = '-h' in rest or '--help' in rest
+    if not wants_help:
+        rest = containers.expand_slugs(rest, cmd)   # bare <slug> -> .toons/<slug>/ (+ --root)
+
+    if cmd == 'check':
+        if wants_help:
+            print("check: lint + refs - the loop's CHECK step (lint first, then refs).\n")
+            print(docstring('lint.py') + '\n\n' + docstring('refs.py'))
+            return
+        sys.exit(max(run('lint.py', strip_root(rest)), run('refs.py', rest)))
+    if cmd in SCRIPTS:
+        if wants_help:
+            print(docstring(SCRIPTS[cmd]))
+            return
+        sys.exit(run(SCRIPTS[cmd], rest))
+    emit.die('UNKNOWN_COMMAND', f"unknown command: {cmd} (try -h)")
+
+
+if __name__ == '__main__':
+    main()

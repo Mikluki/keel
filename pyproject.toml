@@ -1,0 +1,25 @@
+[project]
+name = "keel"
+version = "0.1.0"
+description = "A spec as a cacheable graph - a domain-agnostic TOON graph engine"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = []
+
+# Script-based layout (engine/*.py run via runpy), not an installable package.
+# No [build-system] -> uv manages the venv but does not build/install the project.
+[tool.uv]
+package = false
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+# engine/ modules import each other flat (`import emit`) because they run as scripts;
+# pythonpath lets tests import them the same way - no packaging, no path hacks in code.
+[tool.pytest.ini_options]
+pythonpath = ["engine"]
+testpaths = ["tests"]
+
+# same declaration for the type checker, so `import emit` resolves in tests/ too
+[tool.pyright]
+extraPaths = ["engine"]

@@ -1,0 +1,18 @@
+slice: refs-demo
+owns: exercises ref-resolve - Python + Rust fixtures, a bare-symbol search, and a miss
+refs: {logic: fixtures}
+
+parts[4]{id,card}:
+  py-class,"DefectHooks (Python), resolved by file#symbol"
+  rs-struct,"DefectHooks (Rust), resolved by file#symbol"
+  bare-ambig,"keyed_uniform - bare search finds it in BOTH fixtures -> AMBIGUOUS"
+  missing,"a deliberately wrong symbol -> MISSING"
+
+edges[4]{kind,from,to}:
+  ref,py-class,fixtures/sample.py#DefectHooks
+  ref,rs-struct,fixtures/degraded.rs#DefectHooks
+  ref,bare-ambig,keyed_uniform
+  ref,missing,fixtures/degraded.rs#warp_drawX
+
+views[1]{kind,title,table,arg,extra}:
+  table,Ref demo,parts,"id,card",

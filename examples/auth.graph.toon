@@ -1,0 +1,26 @@
+slice: auth-demo
+owns: a tiny NON-RNG spec - proves the engine is vocabulary-agnostic (different node
+refs: {logic: src/auth/}
+
+components[3]{id,layer,card}:
+  gateway,edge,"terminates TLS, routes requests, rate-limits"
+  authsvc,core,"issues and verifies bearer tokens"
+  userdb,data,"stores argon2 credential hashes"
+
+policies[2]{id,card}:
+  ratelimit,"100 req/min per IP, enforced at the gateway"
+  mfa,"second factor required for admin scopes"
+
+invariants[1]{id,touches,statement}:
+  no-plaintext,"userdb,authsvc","credentials are argon2-hashed; authsvc never logs them"
+
+edges[4]{kind,from,to}:
+  calls,gateway,authsvc
+  reads,authsvc,userdb
+  enforces,gateway,ratelimit
+  enforces,authsvc,mfa
+
+views[3]{kind,title,table,arg,extra}:
+  table,Components,components,"id,layer,card",
+  join,Enforced policies,components,enforces,card
+  detail,Component detail,components,,
