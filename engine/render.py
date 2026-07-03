@@ -282,6 +282,7 @@ def human_detail(items, full):
     for it in items:
         tag = '' if it['state'] == 'canon' else f"  [{it['state']}]"
         out.append(f"### {it['id']}" + (f" - {it['card']}" if it['card'] else '') + tag)
+        out.append('')
         out += [f"> {cid}: {msg}" for cid, msg in it['constraints']]
         if it['logic']:
             out.append(f"Logic -> {it['logic']}")
@@ -300,6 +301,7 @@ def human_bodies(items):
     out = []
     for it in items:
         out.append(f"## {it['id']}" + (f" - {it['card']}" if it['card'] else ''))
+        out.append('')
         out.append(demote_body_headings(it['body'], under=2))
         out.append('')
     return out
@@ -349,7 +351,7 @@ def main():
     if not views:
         print("(0 views declared - nothing to render)")
     for v in views:
-        print(f"## {v['title']}")
+        print(f"## {v['title']}\n")
         if v['kind'] == 'table':
             cols, rows = build_table(tables, v, ctx)
             body = human_table(cols, rows) if rows else ["(0 rows)"]
@@ -369,7 +371,7 @@ def main():
     for st in STATES:                       # canon -> explore -> dropped
         group = [it for it in bodies if it['state'] == st]
         if group:
-            print(f"# {st.capitalize()}")
+            print(f"# {st.capitalize()}\n")
             print('\n'.join(human_bodies(group)), '\n')
     emit.nxt(f"edit the graph then check {slice_args} --root <code> - never hand-edit this output")
 
