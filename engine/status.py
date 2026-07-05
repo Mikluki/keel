@@ -165,15 +165,12 @@ def main():
         if not seam:
             print("  0 - every referenced node is loaded")
 
-    if planned:
-        emit.nxt(f"pack {planned[0]} {names_for(args)} - implement a planned canon node",
-                 toon=args.toon)
-    elif drifted:
+    if drifted:                            # fix first: a lying graph poisons the worklist
         emit.nxt(f"pack {drifted[0][0]} {names_for(args)} - reconcile the drifted ref",
                  toon=args.toon)
-    elif explore:
-        emit.nxt(f"pack {explore[0]} {names_for(args)} - decide: keep (state:canon) "
-                 f"or drop (state:dropped)", toon=args.toon)
+    elif planned or explore:
+        emit.nxt(f"nextodo {names_for(args)} - the ranked worklist (ready lanes, "
+                 f"decisions, blockers)", toon=args.toon)
     else:
         emit.nxt(f"render {names_for(args)} - all canon nodes implemented; refresh the view",
                  toon=args.toon)

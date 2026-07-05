@@ -1,6 +1,6 @@
 ---
 name: keel
-description: Use when iterating on a complex design captured as a keel graph (a TOON graph + bodies/), e.g. under .toons/**/*.graph.toon. Discussion is the default mode - brainstorm in conversation, edit the graph only once a decision is locked. Before editing a node, pack it for its 1-hop context; after any change, check it (graph lint + code-ref drift); diagnose drift/incompleteness with status. Always edit the .toon graph, never the rendered output; write bodies/*.md prose only when the human explicitly asks.
+description: Use when iterating on a complex design captured as a keel graph (a TOON graph + bodies/), e.g. under .toons/**/*.graph.toon. Discussion is the default mode - brainstorm in conversation, edit the graph only once a decision is locked. Before editing a node, pack it for its 1-hop context; after any change, check it (graph lint + code-ref drift); diagnose drift/incompleteness with status; when asked "what next / what should I work on", answer with nextodo. Always edit the .toon graph, never the rendered output; write bodies/*.md prose only when the human explicitly asks.
 allowed-tools: Bash(python3 ${CLAUDE_SKILL_DIR}/scripts/cli.py *), Bash(rg *)
 ---
 
@@ -113,8 +113,21 @@ render into the spec.
 `keel status <slices...> --code-root <code>` - the dashboard: the canon/explore/dropped
 lifecycle lanes, then over canon: implemented vs planned vs DRIFTED nodes, rule failures,
 orphan nodes, and the unbuilt cross-slice seams (with who depends on each). Reach for this
-when something feels off, before a big edit, to find the worklist (planned canon nodes with
-no code yet), or the explore nodes awaiting a keep/drop decision.
+when something feels off or before a big edit - it diagnoses; for "what should I do", see
+nextodo below.
+
+## What next - the derived worklist
+`keel nextodo <slices...> --code-root <code>` answers ONE question: what is worth doing
+right now. Drifted refs to FIX first, then READY nodes (planned canon whose prerequisites
+are all implemented) ranked by leverage (frees = blocked nodes it is the last obstacle
+for) and grouped into lanes - nodes in DIFFERENT lanes share no edge or constraint, so
+they are safe to hand to parallel agents - then explore nodes awaiting a keep/drop
+DECISION, then the BLOCKED list with each blocker named. Everything is derived from
+edges + ref resolution: no plan files, no status columns, nothing to author or sync.
+When the human asks "what next" / "where do I start", run THIS, not status - and pass
+`--brief` (top of the ready list + counts) to keep your context lean; the full list is
+the human's view. Scope it with `keel nextodo <goal-node> <slices...>`: the same ladder
+restricted to the goal's unbuilt dependency cone - what stands between you and it.
 
 ## Rules of the model
 - A reference is ALWAYS an edge (so lint catches a typo'd target); columns are literal

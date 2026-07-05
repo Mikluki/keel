@@ -29,7 +29,7 @@ SOURCE_EXTS = ('.py', '.rs')       # dropped from a slug by default; -> -py/-rs 
 TOONS_DIR = '.toons'
 GRAPH_GLOB = '*.graph.toon'
 INDEX_FILE = '_index.toon'
-ROOT_CMDS = ('refs', 'status', 'check')   # commands whose --code-root should default to the repo root
+ROOT_CMDS = ('refs', 'status', 'check', 'nextodo')   # commands whose --code-root should default to the repo root
 _LOGIC = re.compile(r'logic:\s*([^,}]+)')
 
 # ============================================================================

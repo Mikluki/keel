@@ -98,9 +98,9 @@ and 10 are argument-layer fixes in `cli.py`; 7 is the opt-in `watch` monitor.
 8. **Content first** - show actual data, not a wall of help text.  (ok)
 9. **Contextual disclosure** - append relevant next-step commands after output, not all
    upfront.
-   - [x] Every command ends with a `next:` line via `emit.nxt` (`status`->pack a planned
-     node; `pack`->edit then check; failing `check`->the fix). Under `--toon` the hint goes to
-     stderr, so the stdout payload stays pure (round-trips `parse_toon`).
+   - [x] Every command ends with a `next:` line via `emit.nxt` (`status`->fix drift or the
+     nextodo worklist; `pack`->edit then check; failing `check`->the fix). Under `--toon` the
+     hint goes to stderr, so the stdout payload stays pure (round-trips `parse_toon`).
 10. **Consistent help** - concise per-subcommand reference for when agents need it.
     - [x] `<cmd> -h/--help` prints that module's docstring (via `cli.py docstring`).
 
@@ -111,12 +111,13 @@ and 10 are argument-layer fixes in `cli.py`; 7 is the opt-in `watch` monitor.
     deploy.sh      install skill/ + engine/ -> ~/.claude/skills/keel/ (real copy; re-run = reinstall)
                    also symlinks completion/_keel onto $fpath (oh-my-zsh auto-detected)
     engine/        the agnostic tool (code only, no domain words)
-      cli.py         entry point (-h: render|lint|refs|status|check|pack|find|new; -hh adds view|index|watch)
+      cli.py         entry point (-h: render|lint|refs|status|nextodo|check|pack|find|new; -hh adds view|index|watch)
       render.py      G2: parse/union + 3 view primitives (table / join / detail)
       view.py        materialize the render to <dir>/<name>.view.md (live-preview artifact)
       lint.py        graph-internal gate
       refs.py        graph<->code drift gate (ripgrep, Rust + Python)
       status.py      divergence dashboard (exposes classify: impl/planned/drifted)
+      nextodo.py     ranked worklist derived from the graph (fix > ready lanes > decide > blocked)
       pack.py        a node's 1-hop edit context
       index.py       derived repo-wide .toons/ roll-up + slug<->anchor invariant
       find.py        reverse lookup: a source path -> its anchoring container
@@ -137,6 +138,7 @@ Dev form (from this repo's root) is shown below; installed, swap `python engine/
     python engine/cli.py pack   <node> <target dir>         # a node's 1-hop edit context (PICK)
     python engine/cli.py check  <target dir> --root <code>  # lint + refs (the CHECK gate)
     python engine/cli.py status <target dir> --root <code>  # divergence dashboard
+    python engine/cli.py nextodo [goal] <target dir> --root <code>  # ranked worklist: what next
     python engine/cli.py render <target dir>                # human view (G2)
     python engine/cli.py watch  <target dir>                # live: poll .toons/, refresh + lint on change
     python engine/cli.py index                              # repo-wide .toons/ roll-up
@@ -144,8 +146,9 @@ Dev form (from this repo's root) is shown below; installed, swap `python engine/
 `<target dir>` is a container dir, a file, or a bare `<slug>` (which resolves `.toons/<slug>/`
 and defaults `--root`). `--root` is the CODE root for ref resolution (your crate/package),
 separate from the graph dir. Query commands take `--toon` (structured body for an agent),
-`--full` (no truncation), and `-h`/`--help` (its own reference); `new` / `view` / `index` /
-`watch` write files (a new container, a preview, the roll-up, the watch status).
+`--brief` (size-hinted truncation; output is FULL by default), and `-h`/`--help` (its own
+reference); `new` / `view` / `index` / `watch` write files (a new container, a preview, the
+roll-up, the watch status).
 
 # Containers - where toons live in a large repo
 Don't map the whole repo, only the IDEA LAYER that needs focused attention (a dense
