@@ -133,6 +133,12 @@ Three view primitives (the only ones the renderer knows):
 - `bodies/<id>.md` - a node's prose drill-down, surfaced by `pack`, the `detail` view (clipped),
   and the render's trailing appendix (full text, one `## <id>` per body, grouped under
   `# Canon`/`# Explore`/`# Dropped`).
+- `*.results.toon` - an OPT-IN measurement sidecar for an EMPIRICAL graph only (see SKILL.md
+  "Measurements"; ask before introducing one). A `result{id,touches,run,finding,data}` table
+  keyed by the node id it measures - `touches` wires it to that node (lint-checked), and a
+  `ref` edge on the result points at the data artifact under `refs.numbers` for existence-drift.
+  Auto-unioned from a graph dir like any slice (so `touches`/`ref` resolve), but kept a separate
+  file so its high-churn diffs never touch the low-diff graph. Not created by default.
 - Multiple slices passed together are unioned before lint/render, so refs resolve across them.
 
 ## A complete slice to copy

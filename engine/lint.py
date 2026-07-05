@@ -13,7 +13,8 @@ domain's node/edge kinds - those live in the .toon data.
 import sys
 
 import emit
-from render import STATES, SYSTEM_TABLES, load_union, resolve_paths, split, state_of
+from render import (CARD_MAX, STATES, SYSTEM_TABLES, card_warnings, load_union,
+                    resolve_paths, split, state_of)
 
 
 def node_rows(tables):
@@ -24,7 +25,7 @@ def node_rows(tables):
 
 def main():
     args = emit.parse(sys.argv[1:], allow_root=False, cmd='lint')
-    slices, tables, _ = load_union(resolve_paths(args.positional))
+    slices, tables, prov = load_union(resolve_paths(args.positional))
     ids = {r['id'] for r in node_rows(tables) if 'id' in r}
     valid = ids | set(tables)            # a ref resolves to a node id or a table category
     errors, externals, seen = [], set(), set()
@@ -78,20 +79,36 @@ def main():
     names = ', '.join(n for n, _, _ in slices)
     unresolved = sorted(externals)
     n_edges = len(tables.get('edges', []))
+    warnings = card_warnings(tables, slices, prov)   # soft: cards grown into prose (non-gating)
 
     if args.toon:
         print(emit.toon(
             {'slices': names, 'nodes': len(ids), 'edges': n_edges,
-             'unresolved': len(unresolved), 'errors': len(errors)},
+             'unresolved': len(unresolved), 'warnings': len(warnings), 'errors': len(errors)},
             {'unresolved': (['ref'], [{'ref': x} for x in unresolved]),
+             'warnings': (['id', 'chars', 'has_body'],
+                          [{'id': w['id'], 'chars': w['len'], 'has_body': w['has_body']}
+                           for w in warnings]),
              'errors': (['detail'], [{'detail': e} for e in errors])}))
     else:
         print(f"lint [{names}]: {len(ids)} nodes, {n_edges} edges, "
-              f"{len(unresolved)} unresolved, {len(errors)} errors")
+              f"{len(unresolved)} unresolved, {len(warnings)} warnings, {len(errors)} errors")
         if unresolved:
             print(f"  unresolved cross-slice refs: {emit.trunc_list(unresolved, 12, full=args.full)}")
         else:
             print("  unresolved cross-slice refs: 0")
+        if warnings:
+            print(f"  warnings ({len(warnings)}): cards over {CARD_MAX} chars are prose, not a table row -")
+            print("    card = intent; rationale -> bodies/<id>.md; measured findings -> a results sidecar "
+                  "or refs.numbers data (a card is never drift-checked, so a stale number there passes green)")
+            shown = warnings if args.full else warnings[:12]
+            for w in shown:
+                split_note = "  (also has a body - rationale split two ways)" if w['has_body'] else ""
+                print(f"    {w['id']:24} {w['len']:>4} chars{split_note}")
+            if len(warnings) > len(shown):
+                print(f"    (+{len(warnings) - len(shown)} more; --full)")
+        else:
+            print("  warnings: 0 - every card is a one-liner")
         if errors:
             print(f"  ERRORS ({len(errors)}):")
             for er in errors:

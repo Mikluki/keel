@@ -139,3 +139,51 @@ def test_bad_count_reaches_cli_user(tmp_path):
     r = run_cli('lint', write_slice(tmp_path, 'n[2]{id}:\n  a\n'))
     assert r.returncode == 2
     assert 'BAD_COUNT' in r.stderr and 'Traceback' not in r.stderr
+
+
+# ============================================================================
+# card-length warning: soft, non-gating, scoped to `card`
+# ============================================================================
+
+def test_long_card_warns_but_does_not_gate(tmp_path):
+    long = 'x' * 250
+    r = run_cli('lint', write_slice(tmp_path, f'slice: t\nn[1]{{id,card}}:\n  a,"{long}"\n'))
+    assert r.returncode == 0, r.stdout + r.stderr        # a prose card is a smell, not an error
+    assert '1 warnings' in r.stdout                        # counted on the summary line (watch reads it)
+    assert 'a' in r.stdout and 'chars' in r.stdout
+
+
+def test_short_card_no_warning(tmp_path):
+    r = run_cli('lint', write_slice(tmp_path, 'slice: t\nn[1]{id,card}:\n  a,"short"\n'))
+    assert r.returncode == 0
+    assert '0 warnings' in r.stdout
+
+
+def test_long_card_with_body_flags_split(tmp_path):
+    # a long card that ALSO has a body = the same rationale in two places
+    (tmp_path / 'bodies').mkdir()
+    (tmp_path / 'bodies' / 'a.md').write_text('# a\nprose')
+    r = run_cli('lint', write_slice(tmp_path, f'slice: t\nn[1]{{id,card}}:\n  a,"{"y" * 250}"\n'))
+    assert r.returncode == 0
+    assert 'also has a body' in r.stdout
+
+
+def test_long_finding_in_results_not_a_card_warning(tmp_path):
+    # a result's `finding` is the earned home for a measured number - it must NOT trip the
+    # card check (which is scoped to `card`), even at full length
+    (tmp_path / 'g.graph.toon').write_text('slice: t\nn[1]{id,card}:\n  exp,"an experiment"\n')
+    (tmp_path / 'g.results.toon').write_text(
+        f'slice: t-res\nresult[1]{{id,touches,finding}}:\n  r-exp,exp,"{"z" * 300}"\n')
+    r = run_cli('lint', tmp_path)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert '0 warnings' in r.stdout
+
+
+def test_results_sidecar_unions_from_dir(tmp_path):
+    # the *.results.toon sibling auto-unions, so its `touches` back to a graph node resolves
+    (tmp_path / 'g.graph.toon').write_text('slice: t\nn[1]{id,card}:\n  exp,"an experiment"\n')
+    (tmp_path / 'g.results.toon').write_text(
+        'slice: t-res\nresult[1]{id,touches,finding}:\n  r-exp,exp,"ran; ok"\n')
+    r = run_cli('lint', tmp_path)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert 'unresolved cross-slice refs: 0' in r.stdout       # touches:exp resolved across files

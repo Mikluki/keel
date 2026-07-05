@@ -13,7 +13,8 @@ import sys
 
 import emit
 from refs import resolve
-from render import SYSTEM_TABLES, load_union, resolve_paths, split, state_of
+from render import (CARD_MAX, SYSTEM_TABLES, card_warnings, load_union,
+                    resolve_paths, split, state_of)
 
 
 def node_rows(tables):
@@ -61,7 +62,7 @@ def classify(tables, root):
 def main():
     args = emit.parse(sys.argv[1:], cmd='status')
     paths = resolve_paths(args.positional)
-    slices, tables, _ = load_union(paths)
+    slices, tables, prov = load_union(paths)
     root = emit.default_root(args.root, paths)
 
     ids = {r['id'] for r in node_rows(tables) if 'id' in r}
@@ -103,6 +104,8 @@ def main():
             if tok not in valid:
                 seam.setdefault(tok, set()).add(r.get('id'))
 
+    long_cards = card_warnings(tables, slices, prov)   # soft: cards grown into prose
+
     names = ', '.join(n for n, _, _ in slices)
     drift_rows = [{'node': nid, 'to': t, 'status': s} for nid, probs in drifted for t, s in probs]
     seam_rows = [{'seam': s, 'dependents': ' '.join(sorted(seam[s]))} for s in sorted(seam)]
@@ -114,8 +117,12 @@ def main():
              'explore': len(explore), 'dropped': len(dropped),
              'implemented': len(implemented), 'planned': len(planned), 'drifted': len(drifted),
              'rules': len(tables.get('rules', [])), 'rules_failing': len(rule_fail),
-             'orphans': len(orphans), 'duplicate_ids': len(dups), 'seams': len(seam)},
+             'orphans': len(orphans), 'duplicate_ids': len(dups),
+             'long_cards': len(long_cards), 'seams': len(seam)},
             {'planned': (['id'], [{'id': n} for n in planned]),
+             'long_cards': (['id', 'chars', 'has_body'],
+                            [{'id': w['id'], 'chars': w['len'], 'has_body': w['has_body']}
+                             for w in long_cards]),
              'drifted': (['node', 'to', 'status'], drift_rows),
              'explore': (['id'], [{'id': n} for n in explore]),
              'dropped': (['id'], [{'id': n} for n in dropped]),
@@ -148,6 +155,10 @@ def main():
         print(f"  orphans      {len(orphans)}"
               + (f"  ({emit.trunc_list(orphans, 8, full=args.full)})" if orphans else ""))
         print(f"  duplicate id {len(dups)}" + (f"  ({', '.join(sorted(dups))})" if dups else ""))
+        print(f"  long cards   {len(long_cards)}"
+              + (f"  (>{CARD_MAX} chars: "
+                 f"{emit.trunc_list([w['id'] for w in long_cards], 8, full=args.full)})"
+                 if long_cards else ""))
         print(f"\nSEAMS (referenced, not loaded - the unbuilt slices): {len(seam)}")
         for s in sorted(seam):
             print(f"  {s:16} <- {emit.trunc_list(sorted(seam[s]), 6, full=args.full)}")

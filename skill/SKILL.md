@@ -60,6 +60,21 @@ each body becomes a deliberate artifact the human requests - not something re-wr
 turn. When the prose has fallen behind the graph, say so and offer a body sync; do not silently
 regenerate it. (The rendered `*.view.md` is build output either way - never hand-edited.)
 
+## Measurements: an opt-in results sidecar (ask first, do not reflex)
+Most graphs have NO measured results - keep numbers out of the model entirely. But an
+EMPIRICAL design (experiments, benchmarks - findings that change every run and that
+decisions/bodies cite by number) needs a home for them, and it is NOT the card: a card is
+intent, and nothing drift-checks a number pasted into one, so it rots green while `check`
+stays happy (`check`/`status` now WARN when a card outgrows a one-liner). That home is a
+sibling `<slug>.results.toon` - its own file, so its churny diffs never touch the low-diff
+graph, yet it unions like any slice so relations resolve. Shape: a
+`result{id,touches,run,finding,data}` table keyed by the node it measures, with a `ref` to
+the data artifact under `refs.numbers` so `check` at least existence-drifts the evidence.
+The `finding` field is the earned number's ONE home - decisions/bodies cite it, never
+re-paste it. This file is a GENERATED artifact the human owns: do NOT scaffold or
+hand-maintain one speculatively. The family is narrow and easy to over-apply - when a graph
+starts collecting measured numbers in cards, name the pattern and ASK before introducing it.
+
 ## The loop
 The execution path for a LOCKED change:
 1. **PICK** - `keel pack <node> <slices...>` - load ONLY this. It lists the node's
@@ -114,7 +129,9 @@ no code yet), or the explore nodes awaiting a keep/drop decision.
   appease lint.
 - One fact, one place: a row cell is a one-liner for tables; the body owns the full
   rationale (and, for dropped nodes, the revival conditions); a decision card is a verdict
-  plus its `touches` - never a restatement of what cells and bodies already say.
+  plus its `touches` - never a restatement of what cells and bodies already say. A card is
+  intent, NOT a lab notebook: measured numbers and run results never live in a card (nothing
+  drift-checks one) - they go to `refs.numbers` data or a results sidecar (see Measurements).
 - Model minimally: start at `id,state,card`; add a column only when a view needs it, an
   edge only when it changes a decision or a blast radius. Speculative structure is dead
   weight you re-sync forever.

@@ -87,12 +87,15 @@ def split(field):
     return [t.strip() for t in field.split(',') if t.strip()]
 
 
-SLICE_GLOBS = ('*.graph.toon', '*.views.toon')
+SLICE_GLOBS = ('*.graph.toon', '*.views.toon', '*.results.toon')
 
 
 def dir_slices(d):
     """Every slice file in a directory: graph slices first, then views (a SYSTEM_TABLE,
-    so lint/refs/status/pack are unaffected; only render gains its views)."""
+    so lint/refs/status/pack are unaffected; only render gains its views), then any OPT-IN
+    `*.results.toon` measurement sidecar. Recognizing the results glob has no effect when the
+    file is absent (the common case); when present it unions so its `touches`/`ref` back to
+    graph nodes resolve, while its high-churn diffs stay isolated in their own file."""
     return [f for g in SLICE_GLOBS for f in sorted(Path(d).glob(g))]
 
 
@@ -120,6 +123,34 @@ def load_union(paths):
                     if 'id' in r:
                         prov[r['id']] = name
     return slices, tables, prov
+
+
+CARD_MAX = 200   # a card is the table ROW, not the body: past this it has grown into prose
+
+
+def card_warnings(tables, slices, prov, limit=CARD_MAX):
+    """Node `card`s that have outgrown a one-liner into prose - a soft, NON-gating smell.
+
+    A card is the table-view row; the full rationale belongs in bodies/<id>.md and any
+    MEASURED numbers in refs.numbers - never the card. `check` drift-checks code refs, but
+    nothing checks a card, so a stale result pasted there passes green forever. Returns rows
+    over `limit` chars as {id, len, has_body}, longest first; has_body flags the split-brain
+    case (a long card that ALSO has a body - the same rationale living in two places).
+    Scoped to `card` on purpose: a decision's chose/rejected/why is a different column with a
+    different discipline (a verdict, not a one-liner).
+    """
+    root_of = {name: d for name, _, d in slices}
+    out = []
+    for name, rows in tables.items():
+        if name in SYSTEM_TABLES:
+            continue
+        for r in rows:
+            n = len(r.get('card', ''))
+            if n > limit:
+                nid = r.get('id', '?')
+                body = root_of.get(prov.get(nid), Path('.')) / 'bodies' / f'{nid}.md'
+                out.append({'id': nid, 'len': n, 'has_body': body.exists()})
+    return sorted(out, key=lambda w: -w['len'])
 
 
 def lookup(tables, node_id):
