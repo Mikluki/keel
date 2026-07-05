@@ -289,6 +289,7 @@ def human_detail(items, full):
         if it['body']:
             n = len(it['body'].splitlines()) if full else DETAIL_BODY_LINES
             demoted = demote_body_headings(it['body'], under=3)
+            out.append('')
             out.append(emit.clip(demoted, n, f"full: read bodies/{it['id']}.md or pass --full"))
         out.append('')
     return out
