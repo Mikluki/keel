@@ -24,14 +24,14 @@ The full grammar and a complete slice to copy live in `${CLAUDE_SKILL_DIR}/refer
 read it BEFORE authoring or editing a slice; never reverse-engineer the format from the engine.
 
 The container is `.toons/<slug>/` at the root of the crate/package it describes - that
-root is `--root`, and `find` / `status` / `watch` all derive it by walking up to the
+root is `--code-root`, and `find` / `status` / `watch` all derive it by walking up to the
 nearest `.toons/`. It is TRACKED: committed and versioned with the code, because it is the
 source of truth you both re-render from and drift-check against. Never a scratchpad or an
-untracked dir - that breaks `find`, `--root` defaulting, and `watch`, and a design
+untracked dir - that breaks `find`, `--code-root` defaulting, and `watch`, and a design
 that cannot travel with its code cannot gate drift. Placement is determined, not a choice -
 do not ask where to put it.
 
-`--root` is the CODE root (your crate/package) for ref resolution, separate from the graph
+`--code-root` is the CODE root (your crate/package) for ref resolution, separate from the graph
 dir. Every command also takes `--toon` (structured output), `--full` (no truncation), and
 `-h` (its own reference).
 
@@ -67,12 +67,14 @@ The execution path for a LOCKED change:
    invariants/decisions that constrain it, and its `ref -> code` targets. pack is a SCALE
    tool: when the union is small (under ~40 nodes) just read the graph file - the point is
    loading one node's blast radius instead of the whole spec, however you get it.
+   pack reads the GRAPH only, never code - so it takes NO `--code-root` (that flag is for
+   the ref-resolving commands: `check` / `refs` / `status` / `new`).
 2. **CLASSIFY** the change:
    - logic-only (a formula / impl detail) -> the graph is UNCHANGED (the ref still points)
    - structural (new node/edge, changed decision/invariant) -> edit the GRAPH FIRST
 3. **IMPLEMENT** the code, plus the asserts that pin any new/changed invariant.
 4. **RECONCILE** - point the node's `ref` edge at what you wrote: `ref,<node>,file.rs#symbol`.
-5. **CHECK** - `keel check <slices...> --root <code>` - lint (graph-internal) + refs
+5. **CHECK** - `keel check <slices...> --code-root <code>` - lint (graph-internal) + refs
    (graph<->code drift). Green, or fix and repeat.
 
 ## New ideas - explore, then keep or drop
@@ -93,7 +95,7 @@ it is built (the derived planned/implemented/drifted). Only canon nodes gate `ch
 render into the spec.
 
 ## Diagnose divergence
-`keel status <slices...> --root <code>` - the dashboard: the canon/explore/dropped
+`keel status <slices...> --code-root <code>` - the dashboard: the canon/explore/dropped
 lifecycle lanes, then over canon: implemented vs planned vs DRIFTED nodes, rule failures,
 orphan nodes, and the unbuilt cross-slice seams (with who depends on each). Reach for this
 when something feels off, before a big edit, to find the worklist (planned canon nodes with

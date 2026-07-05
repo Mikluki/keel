@@ -7,8 +7,8 @@ minimal VALID slice you then edit. This is `find`'s MISS branch automated: no ha
 slug guessing, no format-guessing - lint/render/check pass on the skeleton as-is, so you edit
 from a green baseline. Grammar to fill it in: references/schema.md.
 
-    python new.py src/parser/lexer.rs --root ../my-crate      # -> .toons/src-parser-lexer/
-    python new.py src/auth/ --root ../my-crate --toon          # structured body for an agent
+    python new.py src/parser/lexer.rs --code-root ../my-crate      # -> .toons/src-parser-lexer/
+    python new.py src/auth/ --code-root ../my-crate --toon          # structured body for an agent
 """
 import sys
 from pathlib import Path
@@ -43,7 +43,7 @@ views[3]{{kind,title,table,arg,extra}}:
 def main():
     args = emit.parse(sys.argv[1:], cmd='new')
     if not args.positional:
-        emit.die('USAGE', 'new needs a code anchor: new <path> [--root <code-root>]')
+        emit.die('USAGE', 'new needs a code anchor: new <path> [--code-root <dir>]')
     anchor = args.positional[0]
     slug = containers.flatten(anchor)
     if not slug:
@@ -70,7 +70,7 @@ def main():
         print(f"  {slice_file}")
         print(f"  {container}/bodies/   (drop <id>.md prose here)")
     emit.nxt(f"fill in {slice_file.name} (grammar: references/schema.md), "
-             f"then check {container} --root {root}", toon=args.toon)
+             f"then check {container} --code-root {root}", toon=args.toon)
 
 
 if __name__ == '__main__':

@@ -6,8 +6,8 @@ view: implemented vs planned vs DRIFTED nodes (graph<->code), rule failures, orp
 nodes, and the unbuilt cross-slice seams with who depends on each. Domain-agnostic -
 reads only nodes / edges / rules / ref edges.
 
-    python status.py [slices...] [--root R]
-    python status.py .toons/<slug> --root ../my-crate --toon     # structured body for an agent
+    python status.py [slices...] [--code-root R]
+    python status.py .toons/<slug> --code-root ../my-crate --toon     # structured body for an agent
 """
 import sys
 

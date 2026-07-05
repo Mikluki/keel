@@ -9,7 +9,7 @@ named differently from its anchor, or two anchors that flatten to the same undis
 slug (dec 1), fail the gate (exit 1).
 
 Reads/writes: reads every .toons/<slug>/*.graph.toon (+ resolves their `ref` edges against
---root via ripgrep); writes <repo>/.toons/_index.toon unless --check.
+--code-root via ripgrep); writes <repo>/.toons/_index.toon unless --check.
 
     python index.py                     # discover .toons/ from cwd, refresh _index.toon
     python index.py .toons              # point at a .toons dir (or its repo root) explicitly

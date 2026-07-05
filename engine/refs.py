@@ -7,8 +7,8 @@ searched across the root. Resolution uses ripgrep with Rust/Python definition
 patterns, so the agent never greps by hand and a renamed or missing symbol FAILS
 the gate instead of silently rotting the design.
 
-    python refs.py *.graph.toon --root ../my-crate
-    python refs.py .toons/<slug> --root ../my-crate --toon     # structured body for an agent
+    python refs.py *.graph.toon --code-root ../my-crate
+    python refs.py .toons/<slug> --code-root ../my-crate --toon     # structured body for an agent
 """
 import re
 import shutil
@@ -126,7 +126,7 @@ def main():
         emit.nxt("point each failing canon ref at real code (ref,<node>,file#symbol), "
                  "or set the node state:explore/dropped, then re-run check", toon=args.toon)
         sys.exit(1)
-    emit.nxt(f"status {slice_args} --root <code> for the divergence dashboard", toon=args.toon)
+    emit.nxt(f"status {slice_args} --code-root <code> for the divergence dashboard", toon=args.toon)
 
 
 if __name__ == '__main__':

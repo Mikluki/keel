@@ -344,7 +344,7 @@ def main():
             else:
                 toon_tables[name] = (['note'], [{'note': f"unknown view kind: {v['kind']}"}])
         print(emit.toon({'slices': names, 'views': len(views)}, toon_tables))
-        emit.nxt(f"edit the graph then check {slice_args} --root <code>", toon=True)
+        emit.nxt(f"edit the graph then check {slice_args} --code-root <code>", toon=True)
         return
 
     print(f"# Render - slices: {names}\n")
@@ -374,7 +374,7 @@ def main():
         if group:
             print(f"# {st.capitalize()}\n")
             print('\n'.join(human_bodies(group)), '\n')
-    emit.nxt(f"edit the graph then check {slice_args} --root <code> - never hand-edit this output")
+    emit.nxt(f"edit the graph then check {slice_args} --code-root <code> - never hand-edit this output")
 
 
 if __name__ == '__main__':

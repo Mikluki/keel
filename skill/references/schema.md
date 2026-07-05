@@ -93,7 +93,7 @@ Constraint tables are just node tables by convention - nothing special to the en
   `refs.py` (ripgrep), not node resolution. Three target forms:
   - `file.py#symbol` / `file.rs#Struct` - a symbol in a specific file
   - `path/to/file.rs` - a whole file
-  - `bare_symbol` - searched across `--root` (ambiguous if it hits multiple files)
+  - `bare_symbol` - searched across `--code-root` (ambiguous if it hits multiple files)
 
 ## `views` - presentation (reserved table; usually in a `*.views.toon`)
 

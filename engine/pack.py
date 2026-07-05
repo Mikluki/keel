@@ -94,13 +94,13 @@ def main():
     slice_args = ' '.join(args.positional[1:]) or '.'
     if st == 'explore':
         emit.nxt(f"decide: keep it (set state:canon + point its ref at code) or drop it "
-                 f"(state:dropped + write the why); then check {slice_args} --root <code>",
+                 f"(state:dropped + write the why); then check {slice_args} --code-root <code>",
                  toon=args.toon)
     elif st == 'dropped':
         emit.nxt("dropped (a rejected record) - revive with state:explore, else leave it as "
                  "institutional memory", toon=args.toon)
     else:
-        emit.nxt(f"edit the graph, then: check {slice_args} --root <code>", toon=args.toon)
+        emit.nxt(f"edit the graph, then: check {slice_args} --code-root <code>", toon=args.toon)
 
 
 if __name__ == '__main__':

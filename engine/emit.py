@@ -34,7 +34,7 @@ class Args:
 
 
 def parse(argv, *, allow_root=True, cmd='keel', flags=()):
-    """Split argv into positionals + the known flags (--root/--toon/--full).
+    """Split argv into positionals + the known flags (--code-root/--toon/--full).
 
     Any other `-flag` is fatal (P6): report it structurally and exit non-zero instead
     of silently swallowing it, which is how the old code lost typo'd flags. `flags` opts a
@@ -44,9 +44,9 @@ def parse(argv, *, allow_root=True, cmd='keel', flags=()):
     i = 0
     while i < len(argv):
         tok = argv[i]
-        if tok == '--root' and allow_root:
+        if tok == '--code-root' and allow_root:
             if i + 1 >= len(argv):
-                die('BAD_FLAG', f"'{cmd}': --root needs a path argument")
+                die('BAD_FLAG', f"'{cmd}': --code-root needs a path argument")
             a.root = Path(argv[i + 1])
             i += 2
         elif tok == '--toon':

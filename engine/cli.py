@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
 """keel - one entry point for the spec-graph loop tools.
 
-    keel render  [slices...]            human view (Generate-2)
-    keel lint    [slices...]            graph-internal consistency gate
-    keel refs    [slices...] --root R   graph<->code drift gate (ripgrep)
-    keel status  [slices...] --root R   divergence dashboard
-    keel check   [slices...] --root R   lint + refs (the loop's CHECK step)
-    keel pack    <node> [slices...]     a node's 1-hop edit context (PICK step)
-    keel find    <source-path>          which .toons/ container anchors a file
-    keel new     <anchor> [--root R]    scaffold a fresh .toons/<slug>/ (cold start)
+    keel render  [slices...]                 human view (Generate-2)
+    keel lint    [slices...]                 graph-internal consistency gate
+    keel refs    [slices...] --code-root R   graph<->code drift gate (ripgrep)
+    keel status  [slices...] --code-root R   divergence dashboard
+    keel check   [slices...] --code-root R   lint + refs (the loop's CHECK step)
+    keel pack    <node> [slices...]          a node's 1-hop edit context (PICK step)
+    keel find    <source-path>               which .toons/ container anchors a file
+    keel new     <anchor> [--code-root R]    scaffold a fresh .toons/<slug>/ (cold start)
 
 slices default to *.graph.toon in the cwd; a directory arg is globbed. In a repo with a
 `.toons/` dir, a bare `<slug>` (e.g. `check scripts-viz-lenses`) resolves to that
-container and defaults --root to the repo root - no long paths on every call.
---root is the CODE root for ref resolution (your crate/package).
+container and defaults --code-root to the repo root - no long paths on every call.
+--code-root is the CODE root for ref resolution (your crate/package).
 Every command takes --toon (structured body) and -h/--help (its own reference); -hh also
 lists the human/setup commands (view, index, watch).
 
@@ -58,7 +58,7 @@ def run(script, argv):
 def strip_root(argv):
     out, i = [], 0
     while i < len(argv):
-        if argv[i] == '--root':
+        if argv[i] == '--code-root':
             i += 2
         else:
             out.append(argv[i])
@@ -89,7 +89,7 @@ def main():
     cmd, rest = sys.argv[1], sys.argv[2:]
     wants_help = '-h' in rest or '--help' in rest
     if not wants_help:
-        rest = containers.expand_slugs(rest, cmd)   # bare <slug> -> .toons/<slug>/ (+ --root)
+        rest = containers.expand_slugs(rest, cmd)   # bare <slug> -> .toons/<slug>/ (+ --code-root)
 
     if cmd == 'check':
         if wants_help:

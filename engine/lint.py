@@ -104,7 +104,7 @@ def main():
         emit.nxt(f"fix the {len(errors)} error(s) above in the graph, then re-run check",
                  toon=args.toon)
         sys.exit(1)
-    emit.nxt(f"refs {slice_args} --root <code> - now check graph<->code drift", toon=args.toon)
+    emit.nxt(f"refs {slice_args} --code-root <code> - now check graph<->code drift", toon=args.toon)
 
 
 if __name__ == '__main__':

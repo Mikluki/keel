@@ -16,7 +16,7 @@ invariant), find.py (reverse lookup), and watch.py (the live monitor).
     expected_slugs(anchors)    collision-aware slug per container (dec 1 fail / dec 2 -py/-rs)
     candidate_slugs(rel)       slugs that could anchor a source path, most specific first
     container_for_source(p)    reverse lookup: source path -> its anchoring container dir
-    expand_slugs(argv, cmd)    cli sugar: a bare <slug> -> .toons/<slug>/ (+ --root)
+    expand_slugs(argv, cmd)    cli sugar: a bare <slug> -> .toons/<slug>/ (+ --code-root)
 """
 import re
 from pathlib import Path, PurePosixPath
@@ -29,7 +29,7 @@ SOURCE_EXTS = ('.py', '.rs')       # dropped from a slug by default; -> -py/-rs 
 TOONS_DIR = '.toons'
 GRAPH_GLOB = '*.graph.toon'
 INDEX_FILE = '_index.toon'
-ROOT_CMDS = ('refs', 'status', 'check')   # commands whose --root should default to the repo root
+ROOT_CMDS = ('refs', 'status', 'check')   # commands whose --code-root should default to the repo root
 _LOGIC = re.compile(r'logic:\s*([^,}]+)')
 
 # ============================================================================
@@ -108,7 +108,7 @@ def expected_slugs(anchors):
 def find_toons_root(start=None):
     """Walk up from `start` (default cwd) to the enclosing <repo>/.toons dir, or None.
 
-    The repo root (== --root for ref resolution) is the returned dir's parent.
+    The repo root (== --code-root for ref resolution) is the returned dir's parent.
     """
     here = Path(start or Path.cwd()).resolve()
     for d in (here, *here.parents):
@@ -207,11 +207,11 @@ def container_for_source(source, toons_root=None):
 
 
 def expand_slugs(argv, cmd):
-    """A bare `<slug>` positional -> `.toons/<slug>/`, injecting `--root=<repo root>`.
+    """A bare `<slug>` positional -> `.toons/<slug>/`, injecting `--code-root=<repo root>`.
 
     Only a token that names an existing .toons/<slug>/ dir AND is not an existing path in
     cwd is rewritten - an explicit path always wins, and node ids / file args never match.
-    Injects --root for the code-resolving commands when the caller passed none. A no-op
+    Injects --code-root for the code-resolving commands when the caller passed none. A no-op
     when there is no .toons/ (so running against a plain graph dir is unaffected).
     """
     toons = find_toons_root()
@@ -225,6 +225,6 @@ def expand_slugs(argv, cmd):
             hit = True
         else:
             out.append(tok)
-    if hit and cmd in ROOT_CMDS and '--root' not in out:
-        out += ['--root', str(toons.parent)]
+    if hit and cmd in ROOT_CMDS and '--code-root' not in out:
+        out += ['--code-root', str(toons.parent)]
     return out
