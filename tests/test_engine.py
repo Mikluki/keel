@@ -187,3 +187,25 @@ def test_results_sidecar_unions_from_dir(tmp_path):
     r = run_cli('lint', tmp_path)
     assert r.returncode == 0, r.stdout + r.stderr
     assert 'unresolved cross-slice refs: 0' in r.stdout       # touches:exp resolved across files
+
+
+# ============================================================================
+# output is FULL by default; --brief opts into truncation
+# ============================================================================
+
+def _many_long_cards(k):
+    rows = '\n'.join(f'  n{i},"{"x" * 250}"' for i in range(k))
+    return f'slice: t\nn[{k}]{{id,card}}:\n{rows}\n'
+
+
+def test_full_is_default_no_truncation(tmp_path):
+    r = run_cli('lint', write_slice(tmp_path, _many_long_cards(15)))
+    assert r.returncode == 0
+    assert '15 warnings' in r.stdout
+    assert 'more; --full' not in r.stdout            # nothing is clipped by default
+
+def test_brief_opts_into_truncation(tmp_path):
+    r = run_cli('lint', '--brief', write_slice(tmp_path, _many_long_cards(15)))
+    assert r.returncode == 0
+    assert '15 warnings' in r.stdout                  # the count is always full
+    assert 'more; --full' in r.stdout                 # but the list clips under --brief

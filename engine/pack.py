@@ -7,7 +7,7 @@ the blast radius) + every invariant/decision that `touches` it + its code refs.
 
     python pack.py <node-id> [slices...]
     python pack.py <node> .toons/<slug> --toon      # structured body for an agent
-    python pack.py <node> .toons/<slug> --full      # do not truncate the prose body
+    python pack.py <node> .toons/<slug> --brief     # truncate the prose body (full by default)
 """
 import sys
 from pathlib import Path
@@ -15,7 +15,7 @@ from pathlib import Path
 import emit
 from render import SYSTEM_TABLES, load_union, resolve_paths, split, state_of
 
-BODY_LINES = 12          # prose body is truncated past this; --full shows all
+BODY_LINES = 12          # prose body truncated past this under --brief; full by default
 
 
 def main():

@@ -29,16 +29,18 @@ class Args:
     positional: list = field(default_factory=list)
     root: Optional[Path] = None
     toon: bool = False
-    full: bool = False
+    full: bool = True      # output is FULL by default; --brief opts into size-hinted truncation
     extra: dict = field(default_factory=dict)   # opt-in per-command boolean flags (see `flags=`)
 
 
 def parse(argv, *, allow_root=True, cmd='keel', flags=()):
-    """Split argv into positionals + the known flags (--code-root/--toon/--full).
+    """Split argv into positionals + the known flags (--code-root/--toon/--full/--brief).
 
-    Any other `-flag` is fatal (P6): report it structurally and exit non-zero instead
-    of silently swallowing it, which is how the old code lost typo'd flags. `flags` opts a
-    command into extra boolean flags beyond the shared set; they land in `a.extra`.
+    Output is FULL by default; `--brief` opts into size-hinted truncation. `--full` is kept
+    as an accepted no-op (back-compat / muscle memory). Any other `-flag` is fatal (P6):
+    report it structurally and exit non-zero instead of silently swallowing it, which is how
+    the old code lost typo'd flags. `flags` opts a command into extra boolean flags beyond the
+    shared set; they land in `a.extra`.
     """
     a = Args(extra={f: False for f in flags})
     i = 0
@@ -52,8 +54,11 @@ def parse(argv, *, allow_root=True, cmd='keel', flags=()):
         elif tok == '--toon':
             a.toon = True
             i += 1
-        elif tok == '--full':
+        elif tok == '--full':          # accepted no-op: full is the default now (back-compat)
             a.full = True
+            i += 1
+        elif tok == '--brief':         # opt IN to size-hinted truncation (the old default)
+            a.full = False
             i += 1
         elif tok in a.extra:
             a.extra[tok] = True

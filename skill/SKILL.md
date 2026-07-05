@@ -32,8 +32,8 @@ that cannot travel with its code cannot gate drift. Placement is determined, not
 do not ask where to put it.
 
 `--code-root` is the CODE root (your crate/package) for ref resolution, separate from the graph
-dir. Every command also takes `--toon` (structured output), `--full` (no truncation), and
-`-h` (its own reference).
+dir. Every command also takes `--toon` (structured output), `--brief` (size-hinted
+truncation of long lists/bodies - output is FULL by default), and `-h` (its own reference).
 
 ## Discuss first, write on lock
 A design conversation has two modes, and the default is DISCUSSION. When the user proposes,
