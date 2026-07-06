@@ -316,3 +316,199 @@ def test_nextodo_cycle_fails_loud(tmp_path):
     r = run_cli('nextodo', tmp_path)
     assert r.returncode == 0
     assert 'READY 0' in r.stdout and 'cycle' in r.stdout
+
+
+# ============================================================================
+# matrix: the derived coverage pivot (command + render view kind)
+# ============================================================================
+
+MATRIX_SLICE = '''slice: t
+exp[5]{id,state,card}:
+  e-run,canon,"ran and measured"
+  e-wired,canon,"built"
+  e-plan,canon,"not started"
+  e-drop,dropped,"rejected"
+  e-agg,canon,"aggregator - treats only"
+
+axis[3]{id,state,card}:
+  d1,canon,"covered"
+  d2,canon,"treated but never measured"
+  d3,canon,"other arm"
+
+lens[2]{id,state,card}:
+  m1,canon,"metric one"
+  m2,canon,"metric two"
+
+home[2]{id,state,card}:
+  h-synth,canon,"synthetic side"
+  h-phys,canon,"physical side"
+
+edges[15]{kind,from,to}:
+  treats,e-run,d1
+  treats,e-wired,d3
+  treats,e-plan,d3
+  treats,e-drop,d3
+  treats,e-agg,d1
+  treats,e-agg,d2
+  measures-with,e-run,m1
+  measures-with,e-wired,m1
+  measures-with,e-plan,m2
+  measures-with,e-drop,m2
+  ref,e-run,lib.py
+  ref,e-wired,lib.py
+  lives-in,d1,h-synth
+  lives-in,d2,h-synth
+  lives-in,d3,h-phys
+
+result[1]{id,touches,run,finding,data}:
+  r-1,e-run,"a run","departs the band","res/x.csv"
+'''
+
+
+def _matrix_dir(tmp_path, slice_text=MATRIX_SLICE):
+    (tmp_path / 'lib.py').write_text('def built(): pass\n')
+    write_slice(tmp_path, slice_text)
+    return tmp_path
+
+
+def test_matrix_evidence_glyphs_and_gaps(tmp_path):
+    d = _matrix_dir(tmp_path)
+    r = run_cli('matrix', 'exp', 'treats x measures-with', d, '--code-root', d)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert '# e-run' in r.stdout            # a finding row touches it -> measured
+    assert '= e-wired' in r.stdout          # ref resolves -> implemented
+    assert '~ e-plan' in r.stdout           # no ref -> planned
+    assert 'x e-drop' in r.stdout           # declared dropped
+    assert 'uncovered rows: d2' in r.stdout             # treated, zero cells
+    assert 'e-agg (treats only)' in r.stdout            # pivot with one axis only
+
+
+def test_matrix_groups_rows_by_kind(tmp_path):
+    d = _matrix_dir(tmp_path)
+    r = run_cli('matrix', 'exp', 'treats x measures-with', 'lives-in', d,
+                '--code-root', d)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert '-- h-synth' in r.stdout and '-- h-phys' in r.stdout
+    # group order follows row rank: d1 appears first, so its group leads
+    assert r.stdout.index('-- h-synth') < r.stdout.index('-- h-phys')
+
+
+def test_matrix_discovery_ranks_candidates(tmp_path):
+    d = _matrix_dir(tmp_path)
+    r = run_cli('matrix', d, '--code-root', d)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert 'treats x measures-with' in r.stdout
+    assert '3 x 2' in r.stdout
+    # the nxt hint hands over the exact render command for the top candidate
+    assert f'matrix {d} exp "treats x measures-with"' in r.stdout
+
+
+def test_matrix_toon_keeps_gaps_first_class(tmp_path):
+    d = _matrix_dir(tmp_path)
+    r = run_cli('matrix', 'exp', 'treats x measures-with', d, '--code-root', d, '--toon')
+    assert r.returncode == 0, r.stdout + r.stderr
+    scalars, tables = parse_toon(r.stdout)
+    assert scalars['filled'] == '3' and scalars['uncovered_rows'] == '1'
+    cells = tables['cells']
+    assert {'row': 'd1', 'col': 'm1', 'via': 'e-run', 'state': 'measured'} in cells
+    assert {'row': 'd2', 'col': '', 'via': '', 'state': 'uncovered'} in cells
+    assert tables['onesided'] == [{'via': 'e-agg', 'has': 'treats'}]
+
+
+def test_matrix_unknown_pivot_and_kind_fail_loud(tmp_path):
+    d = _matrix_dir(tmp_path)
+    r = run_cli('matrix', 'nope', 'treats x measures-with', d, '--code-root', d)
+    assert r.returncode == 3 and 'TABLE_NOT_FOUND' in r.stderr
+    r = run_cli('matrix', 'exp', 'bogus x measures-with', d, '--code-root', d)
+    assert r.returncode == 3 and 'KIND_NOT_FOUND' in r.stderr
+
+
+def test_matrix_view_kind_renders_markdown(tmp_path):
+    # the locked form: a views row regenerates the grid on every render (graph-only,
+    # so a resolving-or-not ref both show as `=` ref'd there)
+    view_slice = MATRIX_SLICE + ('\nviews[1]{kind,title,table,arg,extra}:\n'
+                                 '  matrix,Coverage,exp,"treats x measures-with",lives-in\n')
+    d = _matrix_dir(tmp_path, view_slice)
+    r = run_cli('render', d)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert '## Coverage' in r.stdout
+    assert '# e-run' in r.stdout and '= e-wired' in r.stdout
+    assert '**h-synth**' in r.stdout
+    assert 'uncovered rows (1): d2' in r.stdout
+
+
+def test_matrix_flat_render_suggests_grouping(tmp_path):
+    # rendered flat, the output names the partition and the nxt hint hands over the call
+    d = _matrix_dir(tmp_path)
+    r = run_cli('matrix', 'exp', 'treats x measures-with', d, '--code-root', d)
+    assert 'groupable by: lives-in (3/3 rows -> 2 groups)' in r.stdout
+    assert f'matrix {d} exp "treats x measures-with" lives-in' in r.stdout  # nxt: regroup
+    # grouped, the suggestion disappears and the lock hint returns
+    r = run_cli('matrix', 'exp', 'treats x measures-with', 'lives-in', d,
+                '--code-root', d)
+    assert 'groupable by' not in r.stdout and 'lock it' in r.stdout
+
+
+def test_matrix_discovery_suggests_group(tmp_path):
+    d = _matrix_dir(tmp_path)
+    r = run_cli('matrix', d, '--code-root', d)
+    assert 'group: lives-in (2)' in r.stdout
+
+
+def test_matrix_group_fit_diagnostics(tmp_path):
+    # d2 loses its lives-in edge (-> ungrouped) and d1 gains a second (first edge wins)
+    twisted = MATRIX_SLICE.replace('lives-in,d2,h-synth', 'lives-in,d1,h-phys')
+    d = _matrix_dir(tmp_path, twisted)
+    r = run_cli('matrix', 'exp', 'treats x measures-with', 'lives-in', d,
+                '--code-root', d)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert 'ungrouped rows (1): d2' in r.stdout
+    assert 'multi-grouped: d1 (2 lives-in edges, took h-synth)' in r.stdout
+
+
+FALLBACK_SLICE = '''slice: t
+p[2]{id,card}:
+  p1,"x"
+  p2,"y"
+
+a[2]{id,card}:
+  a1,"row"
+  a2,"row"
+
+b[1]{id,card}:
+  b1,"row"
+
+m[2]{id,card}:
+  m1,"col"
+  m2,"col"
+
+edges[6]{kind,from,to}:
+  r,p1,a1
+  r,p1,b1
+  r,p2,a2
+  c,p1,m1
+  c,p2,m2
+  c,p2,m1
+'''
+
+
+def test_matrix_table_fallback_grouping(tmp_path):
+    # no edge kind partitions the rows, but they span two tables -> @table suggested,
+    # and passing it groups by home table
+    write_slice(tmp_path, FALLBACK_SLICE)
+    r = run_cli('matrix', 'p', 'r x c', tmp_path, '--code-root', tmp_path)
+    assert 'groupable by: @table (3/3 rows -> 2 groups)' in r.stdout
+    r = run_cli('matrix', 'p', 'r x c', '@table', tmp_path, '--code-root', tmp_path)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert '-- a' in r.stdout and '-- b' in r.stdout
+
+
+def test_matrix_hint_compresses_container_to_slug(tmp_path):
+    # hints print the human-typeable form: a .toons/<slug>/ path arg compresses back to
+    # the bare slug, slices-first - exactly what the shorthand re-expands on the next call
+    cont = tmp_path / '.toons' / 'demo'
+    cont.mkdir(parents=True)
+    (tmp_path / 'lib.py').write_text('def built(): pass\n')
+    (cont / 'demo.graph.toon').write_text(MATRIX_SLICE)
+    r = run_cli('matrix', cont, 'exp', 'treats x measures-with', '--code-root', tmp_path)
+    assert 'matrix demo exp "treats x measures-with" lives-in' in r.stdout

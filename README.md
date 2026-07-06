@@ -111,13 +111,14 @@ and 10 are argument-layer fixes in `cli.py`; 7 is the opt-in `watch` monitor.
     deploy.sh      install skill/ + engine/ -> ~/.claude/skills/keel/ (real copy; re-run = reinstall)
                    also symlinks completion/_keel onto $fpath (oh-my-zsh auto-detected)
     engine/        the agnostic tool (code only, no domain words)
-      cli.py         entry point (-h: render|lint|refs|status|nextodo|check|pack|find|new; -hh adds view|index|watch)
-      render.py      G2: parse/union + 3 view primitives (table / join / detail)
+      cli.py         entry point (-h: render|lint|refs|status|nextodo|matrix|check|pack|find|new; -hh adds view|index|watch)
+      render.py      G2: parse/union + 4 view primitives (table / join / detail / matrix)
       view.py        materialize the render to <dir>/<name>.view.md (live-preview artifact)
       lint.py        graph-internal gate
       refs.py        graph<->code drift gate (ripgrep, Rust + Python)
       status.py      divergence dashboard (exposes classify: impl/planned/drifted)
       nextodo.py     ranked worklist derived from the graph (fix > ready lanes > decide > blocked)
+      matrix.py      derived coverage pivot: two edge kinds crossed through a table (gaps first-class)
       pack.py        a node's 1-hop edit context
       index.py       derived repo-wide .toons/ roll-up + slug<->anchor invariant
       find.py        reverse lookup: a source path -> its anchoring container
@@ -139,6 +140,7 @@ Dev form (from this repo's root) is shown below; installed, swap `python engine/
     python engine/cli.py check  <target dir> --root <code>  # lint + refs (the CHECK gate)
     python engine/cli.py status <target dir> --root <code>  # divergence dashboard
     python engine/cli.py nextodo [goal] <target dir> --root <code>  # ranked worklist: what next
+    python engine/cli.py matrix <target dir> [pivot "<a> x <b>"] --root <code>  # coverage pivot (no axes: candidates)
     python engine/cli.py render <target dir>                # human view (G2)
     python engine/cli.py watch  <target dir>                # live: poll .toons/, refresh + lint on change
     python engine/cli.py index                              # repo-wide .toons/ roll-up

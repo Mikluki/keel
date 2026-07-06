@@ -3,11 +3,12 @@
 
 The engine knows only: nodes (rows with an `id`), `edges`, `views`, `rules`.
 What node/edge KINDS exist and which VIEWS to draw are declared as data in the
-.toon slices - this file contains no domain vocabulary. Three view primitives:
+.toon slices - this file contains no domain vocabulary. Four view primitives:
 
     table  - list a node table's columns
     join   - per node, edges of a kind touching it -> the other endpoint + a column
     detail - per node, every row that `touches` it + its prose body + logic ref
+    matrix - two edge kinds crossed through a pivot table -> coverage grid (gaps included)
 
 Every node renders; the prose appendix is GROUPED by commitment state under `# Canon`,
 `# Explore`, `# Dropped` (canon -> explore -> dropped), so nothing is hidden but the
@@ -200,6 +201,130 @@ def build_join(tables, spec, ctx):
     return cols, rows
 
 
+MATRIX_AXES = re.compile(r'\s+x\s+')   # "treats x measures-with" -> the two edge kinds
+MATRIX_GLYPH = {'measured': '#', 'implemented': '=', 'refd': '=', 'drifted': '!',
+                'planned': '~', 'dropped': 'x', 'explore': '?'}
+
+
+def matrix_legend(verified):
+    """One glyph vocabulary, two evidence strengths: render never resolves refs (graph-only),
+    so its `=` means ref'd; the matrix command classifies against code and splits =/!."""
+    impl = '= implemented  ! drifted' if verified else "= ref'd (drift-unchecked)"
+    return f"# measured  {impl}  ~ planned  x dropped  ? explore"
+
+
+def measured_ids(tables):
+    """Nodes some finding row `touches`: a row carrying BOTH `touches` and `finding` columns
+    is a measurement (the results-sidecar shape, detected structurally - never by table
+    name), and everything it touches counts as measured."""
+    out = set()
+    for name, rows in tables.items():
+        if name in SYSTEM_TABLES:
+            continue
+        for r in rows:
+            if 'finding' in r and 'touches' in r:
+                out.update(split(r['touches']))
+    return out
+
+
+def build_matrix(tables, spec, real=None):
+    """The coverage pivot: rows = targets of spec.arg's first edge kind leaving spec.table
+    nodes, cols = the second kind's, each cell the pivot node(s) joining the pair, carrying
+    an EVIDENCE state: dropped > measured (see measured_ids) > explore > drifted/implemented
+    (only when `real`, a caller's classify() split, is given) > refd (has a ref edge) >
+    planned. spec.extra optionally groups rows: an edge kind (the row-node's FIRST such
+    edge, spec order, wins; missing/extra edges are reported ungrouped/multigrouped) or
+    the reserved '@table' (group by home table).
+
+    Rows/cols are the kinds' TARGETS - a node no pivot points at is not a row; the
+    uncovered/unused lists mark gaps WITHIN the projected set. All ordering is spec order
+    (pivot-table row order), so the matrix is stable under re-render.
+    """
+    axes = MATRIX_AXES.split(spec['arg'].strip(), maxsplit=1)
+    if len(axes) != 2:
+        emit.die('BAD_VIEW', f"matrix arg {spec['arg']!r} must be '<row-kind> x <col-kind>'")
+    row_kind, col_kind = axes
+    edges = tables.get('edges', [])
+    pivot_rows = tables.get(spec['table'], [])
+    ordered = [r['id'] for r in pivot_rows if r.get('id')]
+    pset = set(ordered)
+
+    rows_of, cols_of = {}, {}
+    for e in edges:
+        if e['from'] in pset:
+            if e['kind'] == row_kind:
+                rows_of.setdefault(e['from'], []).append(e['to'])
+            elif e['kind'] == col_kind:
+                cols_of.setdefault(e['from'], []).append(e['to'])
+
+    measured, refd = measured_ids(tables), {e['from'] for e in edges if e['kind'] == 'ref'}
+    state = {}
+    for r in pivot_rows:
+        pid, st = r.get('id'), state_of(r)
+        if st == 'dropped':
+            state[pid] = 'dropped'
+        elif pid in measured:
+            state[pid] = 'measured'
+        elif st == 'explore':
+            state[pid] = 'explore'
+        elif real is not None and pid in real['drifted']:
+            state[pid] = 'drifted'
+        elif real is not None and pid in real['implemented']:
+            state[pid] = 'implemented'
+        elif pid in refd:
+            state[pid] = 'refd'
+        else:
+            state[pid] = 'planned'
+
+    row_ids, col_ids, seen_r, seen_c = [], [], set(), set()
+    cell = {}
+    for p in ordered:
+        for t in rows_of.get(p, ()):
+            if t not in seen_r:
+                seen_r.add(t)
+                row_ids.append(t)
+        for t in cols_of.get(p, ()):
+            if t not in seen_c:
+                seen_c.add(t)
+                col_ids.append(t)
+        for rt in rows_of.get(p, ()):
+            for ct in cols_of.get(p, ()):
+                ps = cell.setdefault((rt, ct), [])
+                if p not in ps:
+                    ps.append(p)
+
+    gk = spec.get('extra') or ''
+    group_of, ungrouped, multi = {}, [], []
+    if gk == '@table':                     # reserved: group rows by their home table
+        home = {r.get('id'): n for n, trs in tables.items()
+                if n not in SYSTEM_TABLES for r in trs if 'id' in r}
+        group_of = {rid: home.get(rid, '') for rid in row_ids}
+    elif gk:
+        rowset, fan = set(row_ids), {}
+        for e in edges:
+            if e['kind'] == gk and e['from'] in rowset:
+                fan.setdefault(e['from'], []).append(e['to'])
+        group_of = {r: ts[0] for r, ts in fan.items()}    # first edge (spec order) wins
+        ungrouped = [r for r in row_ids if r not in group_of]
+        multi = [(r, len(ts), group_of[r]) for r, ts in fan.items() if len(ts) > 1]
+    groups, order = {}, []
+    for rid in row_ids:
+        g = group_of.get(rid, '')
+        if g not in groups:
+            groups[g] = []
+            order.append(g)
+        groups[g].append(rid)
+
+    return {'row_kind': row_kind, 'col_kind': col_kind, 'group_kind': gk,
+            'rows': row_ids, 'cols': col_ids, 'cell': cell, 'state': state,
+            'ungrouped': ungrouped, 'multigrouped': multi,
+            'groups': [(g, groups[g]) for g in order], 'filled': len(cell),
+            'uncovered': [r for r in row_ids if not any((r, c) in cell for c in col_ids)],
+            'unused': [c for c in col_ids if not any((r, c) in cell for r in row_ids)],
+            'onesided': [(p, row_kind if p in rows_of else col_kind)
+                         for p in ordered if (p in rows_of) != (p in cols_of)]}
+
+
 def body_path(nid, ctx):
     """Where a node's prose body lives: <its slice's dir>/bodies/<id>.md."""
     home = ctx['prov'].get(nid)
@@ -308,6 +433,62 @@ def human_join(spec, cols, rows):
     return lines
 
 
+def human_matrix(spec, m):
+    """A markdown coverage grid: group rows bolded, `.` for a derived-empty cell, then a
+    glyph legend and the gap lines - the empty cells are the payload, so uncovered rows /
+    unused cols are named explicitly (P5), never left to be inferred from the dots."""
+    if not m['rows'] or not m['cols']:
+        return [f"(0 cells - no {m['row_kind']}/{m['col_kind']} edges leave "
+                f"{spec['table']} nodes)"]
+
+    def chips(rt, ct):
+        ps = m['cell'].get((rt, ct), [])
+        return ', '.join(f"{MATRIX_GLYPH[m['state'][p]]} {p}" for p in ps) or '.'
+
+    head = [f"{m['row_kind']} x {m['col_kind']}"] + m['cols']
+    out = ['| ' + ' | '.join(head) + ' |',
+           '| ' + ' | '.join('---' for _ in head) + ' |']
+    for g, rids in m['groups']:
+        if g:
+            out.append('| ' + ' | '.join([f"**{g}**"] + ['' for _ in m['cols']]) + ' |')
+        out += ['| ' + ' | '.join([rt] + [chips(rt, c) for c in m['cols']]) + ' |'
+                for rt in rids]
+    out += ['', f"glyphs: {matrix_legend(verified=False)}"]
+    if m['uncovered']:
+        out.append(f"uncovered rows ({len(m['uncovered'])}): " + ', '.join(m['uncovered']))
+    if m['unused']:
+        out.append(f"unused cols ({len(m['unused'])}): " + ', '.join(m['unused']))
+    if m['onesided']:
+        out.append('one-sided pivots: '
+                   + '; '.join(f"{p} ({k} only)" for p, k in m['onesided']))
+    out += matrix_fit_lines(m)
+    return out
+
+
+def matrix_fit_lines(m):
+    """How well the declared group kind fits the rows - a bad fit must not stay silent:
+    a row without the edge lands in an unlabeled bucket, a row with several takes the
+    first, and both get named here (probe and locked view alike)."""
+    out = []
+    if m['ungrouped']:
+        out.append(f"ungrouped rows ({len(m['ungrouped'])}): " + ', '.join(m['ungrouped']))
+    if m['multigrouped']:
+        out.append('multi-grouped: ' + '; '.join(
+            f"{r} ({n} {m['group_kind']} edges, took {g})"
+            for r, n, g in m['multigrouped']))
+    return out
+
+
+def matrix_toon_rows(m):
+    """One row per (pair, pivot) cell; gaps stay first-class rows an agent can branch on:
+    an uncovered row / unused col appears with the other coordinate empty (P5)."""
+    rows = [{'row': rt, 'col': ct, 'via': p, 'state': m['state'][p]}
+            for (rt, ct), ps in m['cell'].items() for p in ps]
+    rows += [{'row': r, 'col': '', 'via': '', 'state': 'uncovered'} for r in m['uncovered']]
+    rows += [{'row': '', 'col': c, 'via': '', 'state': 'unused'} for c in m['unused']]
+    return ['row', 'col', 'via', 'state'], rows
+
+
 def human_detail(items, full):
     out = []
     for it in items:
@@ -372,6 +553,8 @@ def main():
                 toon_tables[name] = build_join(tables, v, ctx)
             elif v['kind'] == 'detail':
                 toon_tables[name] = detail_toon_rows(build_detail(tables, v, ctx))
+            elif v['kind'] == 'matrix':
+                toon_tables[name] = matrix_toon_rows(build_matrix(tables, v))
             else:
                 toon_tables[name] = (['note'], [{'note': f"unknown view kind: {v['kind']}"}])
         print(emit.toon({'slices': names, 'views': len(views)}, toon_tables))
@@ -393,6 +576,8 @@ def main():
         elif v['kind'] == 'detail':
             items = build_detail(tables, v, ctx)
             body = human_detail(items, args.full) if items else ["(0 nodes)"]
+        elif v['kind'] == 'matrix':
+            body = human_matrix(v, build_matrix(tables, v))
         else:
             body = [f"(unknown view: {v['kind']})"]
         print('\n'.join(body), '\n')

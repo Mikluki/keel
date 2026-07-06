@@ -1,6 +1,6 @@
 ---
 name: keel
-description: Use when iterating on a complex design captured as a keel graph (a TOON graph + bodies/), e.g. under .toons/**/*.graph.toon. Discussion is the default mode - brainstorm in conversation, edit the graph only once a decision is locked. Before editing a node, pack it for its 1-hop context; after any change, check it (graph lint + code-ref drift); diagnose drift/incompleteness with status; when asked "what next / what should I work on", answer with nextodo. Always edit the .toon graph, never the rendered output; write bodies/*.md prose only when the human explicitly asks.
+description: Use when iterating on a complex design captured as a keel graph (a TOON graph + bodies/), e.g. under .toons/**/*.graph.toon. Discussion is the default mode - brainstorm in conversation, edit the graph only once a decision is locked. Before editing a node, pack it for its 1-hop context; after any change, check it (graph lint + code-ref drift); diagnose drift/incompleteness with status; when asked "what next / what should I work on", answer with nextodo; "what covers what / where are the gaps" with matrix. Always edit the .toon graph, never the rendered output; write bodies/*.md prose only when the human explicitly asks.
 allowed-tools: Bash(python3 ${CLAUDE_SKILL_DIR}/scripts/cli.py *), Bash(rg *)
 ---
 
@@ -128,6 +128,21 @@ When the human asks "what next" / "where do I start", run THIS, not status - and
 `--brief` (top of the ready list + counts) to keep your context lean; the full list is
 the human's view. Scope it with `keel nextodo <goal-node> <slices...>`: the same ladder
 restricted to the goal's unbuilt dependency cone - what stands between you and it.
+
+## Coverage - the derived matrix
+`keel matrix` answers "what covers what, and where are the gaps". With no axes it is
+DISCOVERY: it ranks candidate projections (a pivot table carrying two directed edge kinds).
+Then `keel matrix <slices...> <pivot> "<row-kind> x <col-kind>" [group-kind] --code-root
+<code>` renders one: rows and columns are the two kinds' targets, each cell the pivot
+node(s) joining the pair, glyphed by evidence - `#` measured (a results-sidecar row touches
+it), `=` implemented, `!` drifted, `~` planned, `x` dropped, `?` explore. The EMPTY cells
+are the payload: coverage gaps no node-link view can show. Render it FLAT first: the
+output names the kinds that can group the rows (`groupable by: ...`; the reserved
+`@table` groups by home table) and the next-hint hands you the regrouped call - suggest,
+never decide. When a projection earns its
+keep, lock it as a views row - `matrix,<Title>,<pivot>,"<row-kind> x <col-kind>",<group-kind>`
+- and `render` regenerates it with the graph from then on (render never resolves refs, so
+its `=` means ref'd; this command and `check` do the drift-checking).
 
 ## Rules of the model
 - A reference is ALWAYS an edge (so lint catches a typo'd target); columns are literal

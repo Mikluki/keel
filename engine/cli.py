@@ -6,6 +6,7 @@
     keel refs    [slices...] --code-root R   graph<->code drift gate (ripgrep)
     keel status  [slices...] --code-root R   divergence dashboard
     keel nextodo [goal] [slices...] --code-root R   ranked worklist: what next (fix > ready lanes > decide)
+    keel matrix  [slices...] [pivot "<a> x <b>"] --code-root R   coverage pivot (no axes: rank candidates)
     keel check   [slices...] --code-root R   lint + refs (the loop's CHECK step)
     keel pack    <node> [slices...]          a node's 1-hop edit context (PICK step)
     keel find    <source-path>               which .toons/ container anchors a file
@@ -35,8 +36,9 @@ HERE = Path(__file__).resolve().parent
 # of the agent-facing -h listing (shown only under -hh) to keep the agent's context lean - they
 # produce a preview / a roll-up / a live monitor, none part of the pull-based agent loop.
 SCRIPTS = {'render': 'render.py', 'view': 'view.py', 'lint': 'lint.py', 'refs': 'refs.py',
-           'status': 'status.py', 'nextodo': 'nextodo.py', 'pack': 'pack.py',
-           'index': 'index.py', 'find': 'find.py', 'new': 'new.py', 'watch': 'watch.py'}
+           'status': 'status.py', 'nextodo': 'nextodo.py', 'matrix': 'matrix.py',
+           'pack': 'pack.py', 'index': 'index.py', 'find': 'find.py', 'new': 'new.py',
+           'watch': 'watch.py'}
 
 HUMAN_HELP = """
 Human / setup commands (kept out of -h to keep the agent loop lean):

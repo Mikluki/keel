@@ -17,6 +17,7 @@ invariant), find.py (reverse lookup), and watch.py (the live monitor).
     candidate_slugs(rel)       slugs that could anchor a source path, most specific first
     container_for_source(p)    reverse lookup: source path -> its anchoring container dir
     expand_slugs(argv, cmd)    cli sugar: a bare <slug> -> .toons/<slug>/ (+ --code-root)
+    display_arg(tok)           hint sugar: a .toons/<slug>/ path -> its bare <slug>
 """
 import re
 from pathlib import Path, PurePosixPath
@@ -29,7 +30,7 @@ SOURCE_EXTS = ('.py', '.rs')       # dropped from a slug by default; -> -py/-rs 
 TOONS_DIR = '.toons'
 GRAPH_GLOB = '*.graph.toon'
 INDEX_FILE = '_index.toon'
-ROOT_CMDS = ('refs', 'status', 'check', 'nextodo')   # commands whose --code-root should default to the repo root
+ROOT_CMDS = ('refs', 'status', 'check', 'nextodo', 'matrix')   # commands whose --code-root should default to the repo root
 _LOGIC = re.compile(r'logic:\s*([^,}]+)')
 
 # ============================================================================
@@ -228,3 +229,11 @@ def expand_slugs(argv, cmd):
     if hit and cmd in ROOT_CMDS and '--code-root' not in out:
         out += ['--code-root', str(toons.parent)]
     return out
+
+
+def display_arg(tok):
+    """expand_slugs in reverse, for `next:` hints: a container-dir path compresses back to
+    the bare <slug> the human typed (which the shorthand re-expands on the next call);
+    anything else passes through untouched."""
+    p = Path(tok)
+    return p.name if p.is_dir() and p.parent.name == TOONS_DIR else tok

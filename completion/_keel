@@ -15,6 +15,7 @@ _keel() {
     'refs:graph<->code drift gate (ripgrep)'
     'status:divergence dashboard'
     'nextodo:ranked worklist - what to do next'
+    'matrix:derived coverage pivot - what covers what, where are gaps'
     'check:lint + refs, the loop CHECK step'
     'pack:1-hop edit context for a node'
     'find:which .toons container anchors a file'
@@ -30,7 +31,7 @@ _keel() {
   fi
 
   case ${words[2]} in
-    render|lint|refs|status|nextodo|check|pack|view|watch)
+    render|lint|refs|status|nextodo|matrix|check|pack|view|watch)
       slugs=(${(f)"$(keel --list-slugs 2>/dev/null)"})
       if (( ${#slugs} )); then
         _describe -t slugs 'toon slug' slugs
