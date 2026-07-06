@@ -12,6 +12,7 @@ domain's node/edge kinds - those live in the .toon data.
 """
 import sys
 
+import containers
 import emit
 from render import (CARD_MAX, STATES, SYSTEM_TABLES, card_warnings, load_union,
                     resolve_paths, split, state_of)
@@ -116,12 +117,13 @@ def main():
         else:
             print("  errors: 0 - edges + touches resolve, ids unique, rules satisfied")
 
-    slice_args = ' '.join(args.positional) or '.'
+    slice_args = ' '.join(containers.display_arg(a) for a in args.positional) or '.'
     if errors:
-        emit.nxt(f"fix the {len(errors)} error(s) above in the graph, then re-run check",
+        emit.nxt(f"fix the {len(errors)} error(s) above in the graph, then re-run keel check",
                  toon=args.toon)
         sys.exit(1)
-    emit.nxt(f"refs {slice_args} --code-root <code> - now check graph<->code drift", toon=args.toon)
+    emit.nxt(f"keel refs {slice_args} --code-root <code> - now check graph<->code drift",
+             toon=args.toon)
 
 
 if __name__ == '__main__':

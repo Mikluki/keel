@@ -47,7 +47,8 @@ def main():
                   f"{emit.trunc_list(cands, 6, full=args.full)}")
 
     if container:
-        emit.nxt(f"check {container.name}   # open this container's loop (PICK/CHECK)", toon=args.toon)
+        emit.nxt(f"keel check {container.name}   # open this container's loop (PICK/CHECK)",
+                 toon=args.toon)
     else:
         top = cands[0] if cands else 'the-concept'
         emit.nxt(f"bootstrap: mkdir .toons/{top}/ and seed <name>.graph.toon "

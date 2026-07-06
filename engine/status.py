@@ -11,6 +11,7 @@ reads only nodes / edges / rules / ref edges.
 """
 import sys
 
+import containers
 import emit
 from refs import resolve
 from render import (CARD_MAX, SYSTEM_TABLES, card_warnings, load_union,
@@ -166,18 +167,18 @@ def main():
             print("  0 - every referenced node is loaded")
 
     if drifted:                            # fix first: a lying graph poisons the worklist
-        emit.nxt(f"pack {drifted[0][0]} {names_for(args)} - reconcile the drifted ref",
+        emit.nxt(f"keel pack {drifted[0][0]} {names_for(args)} - reconcile the drifted ref",
                  toon=args.toon)
     elif planned or explore:
-        emit.nxt(f"nextodo {names_for(args)} - the ranked worklist (ready lanes, "
+        emit.nxt(f"keel nextodo {names_for(args)} - the ranked worklist (ready lanes, "
                  f"decisions, blockers)", toon=args.toon)
     else:
-        emit.nxt(f"render {names_for(args)} - all canon nodes implemented; refresh the view",
-                 toon=args.toon)
+        emit.nxt(f"keel render {names_for(args)} - all canon nodes implemented; refresh "
+                 "the view", toon=args.toon)
 
 
 def names_for(args):
-    return ' '.join(args.positional) or '.'
+    return ' '.join(containers.display_arg(a) for a in args.positional) or '.'
 
 
 if __name__ == '__main__':

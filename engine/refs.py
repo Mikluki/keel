@@ -16,6 +16,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+import containers
 import emit
 from render import SYSTEM_TABLES, load_union, resolve_paths, state_of
 
@@ -121,12 +122,14 @@ def main():
             tag = '' if r['state'] == 'canon' else f" ({r['state']})"
             print(f"  {r['status']:12} {r['from']:14}{tag} -> {r['to']}{tail}")
 
-    slice_args = ' '.join(args.positional) or '.'
+    slice_args = ' '.join(containers.display_arg(a) for a in args.positional) or '.'
     if bad:
         emit.nxt("point each failing canon ref at real code (ref,<node>,file#symbol), "
-                 "or set the node state:explore/dropped, then re-run check", toon=args.toon)
+                 "or set the node state:explore/dropped, then re-run keel check",
+                 toon=args.toon)
         sys.exit(1)
-    emit.nxt(f"status {slice_args} --code-root <code> for the divergence dashboard", toon=args.toon)
+    emit.nxt(f"keel status {slice_args} --code-root <code> for the divergence dashboard",
+             toon=args.toon)
 
 
 if __name__ == '__main__':

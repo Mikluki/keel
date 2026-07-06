@@ -24,6 +24,7 @@ work; an edge to an UNLOADED node blocks (its state is unknown - load that slice
 import sys
 from pathlib import Path
 
+import containers
 import emit
 from render import SYSTEM_TABLES, load_union, resolve_paths, split
 from status import classify, node_rows
@@ -145,7 +146,7 @@ def main():
             gstate = f"planned, waiting on {len(missing.get(goal, []))} unbuilt"
 
     names = ', '.join(n for n, _, _ in slices)
-    slice_str = ' '.join(slice_args) or '.'
+    slice_str = ' '.join(containers.display_arg(a) for a in slice_args) or '.'
 
     def leverage(r):
         parts = []
@@ -221,19 +222,21 @@ def main():
             print("\nBLOCKED 0 - nothing waits on unbuilt work")
 
     if fix:
-        emit.nxt(f"pack {fix[0][0]} {slice_str} - reconcile the drifted ref, then re-run "
-                 "nextodo", toon=args.toon)
+        emit.nxt(f"keel pack {fix[0][0]} {slice_str} - reconcile the drifted ref, then "
+                 "re-run keel nextodo", toon=args.toon)
     elif rank:
         gain = f" (frees {len(frees[rank[0]])})" if frees[rank[0]] else ''
-        emit.nxt(f"pack {rank[0]} {slice_str} - top of the worklist{gain}", toon=args.toon)
+        emit.nxt(f"keel pack {rank[0]} {slice_str} - top of the worklist{gain}",
+                 toon=args.toon)
     elif explore_s:
-        emit.nxt(f"pack {explore_s[0]} {slice_str} - decide: keep (state:canon) or drop "
-                 "(state:dropped)", toon=args.toon)
+        emit.nxt(f"keel pack {explore_s[0]} {slice_str} - decide: keep (state:canon) or "
+                 "drop (state:dropped)", toon=args.toon)
     elif blocked:
         emit.nxt("every planned node waits on another - a dependency cycle or an unloaded "
                  "slice; inspect BLOCKED", toon=args.toon)
     else:
-        emit.nxt(f"render {slice_str} - nothing to do; all canon implemented", toon=args.toon)
+        emit.nxt(f"keel render {slice_str} - nothing to do; all canon implemented",
+                 toon=args.toon)
 
 
 if __name__ == '__main__':

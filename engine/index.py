@@ -100,8 +100,8 @@ def main():
         emit.nxt("rename each container dir to flatten(refs.logic), or fix its refs.logic anchor",
                  toon=args.toon)
         sys.exit(1)
-    emit.nxt("check <slug> to open a container's loop, or find <path> to reverse-look-up a source file",
-             toon=args.toon)
+    emit.nxt("keel check <slug> to open a container's loop, or keel find <path> to "
+             "reverse-look-up a source file", toon=args.toon)
 
 
 def _locate_toons(positional):

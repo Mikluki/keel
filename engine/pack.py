@@ -12,6 +12,7 @@ the blast radius) + every invariant/decision that `touches` it + its code refs.
 import sys
 from pathlib import Path
 
+import containers
 import emit
 from render import SYSTEM_TABLES, load_union, resolve_paths, split, state_of
 
@@ -91,16 +92,17 @@ def main():
         else:
             print(f"\nbody: 0 - no bodies/{nid}.md")
 
-    slice_args = ' '.join(args.positional[1:]) or '.'
+    slice_args = ' '.join(containers.display_arg(a) for a in args.positional[1:]) or '.'
     if st == 'explore':
         emit.nxt(f"decide: keep it (set state:canon + point its ref at code) or drop it "
-                 f"(state:dropped + write the why); then check {slice_args} --code-root <code>",
-                 toon=args.toon)
+                 f"(state:dropped + write the why); then keel check {slice_args} "
+                 "--code-root <code>", toon=args.toon)
     elif st == 'dropped':
         emit.nxt("dropped (a rejected record) - revive with state:explore, else leave it as "
                  "institutional memory", toon=args.toon)
     else:
-        emit.nxt(f"edit the graph, then: check {slice_args} --code-root <code>", toon=args.toon)
+        emit.nxt(f"edit the graph, then: keel check {slice_args} --code-root <code>",
+                 toon=args.toon)
 
 
 if __name__ == '__main__':

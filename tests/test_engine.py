@@ -242,7 +242,7 @@ def test_nextodo_ready_blocked_and_top_pick(tmp_path):
     assert 'READY 1' in r.stdout and 'BLOCKED 1' in r.stdout
     assert '<- mid' in r.stdout                       # blocked `top`, with the why
     assert 'frees 1' in r.stdout                      # mid is top's last obstacle
-    assert 'next: pack mid' in r.stdout               # the ranked pick, not `base` (built)
+    assert 'next: keel pack mid' in r.stdout               # the ranked pick, not `base` (built)
 
 
 def test_nextodo_fix_ranks_before_ready(tmp_path):
@@ -253,7 +253,7 @@ def test_nextodo_fix_ranks_before_ready(tmp_path):
     r = run_cli('nextodo', d, '--code-root', d)
     assert r.returncode == 0, r.stdout + r.stderr
     assert 'FIX 1' in r.stdout
-    assert 'next: pack top' in r.stdout and 'reconcile' in r.stdout
+    assert 'next: keel pack top' in r.stdout and 'reconcile' in r.stdout
 
 
 def test_nextodo_goal_scopes_to_cone(tmp_path):
@@ -400,7 +400,7 @@ def test_matrix_discovery_ranks_candidates(tmp_path):
     assert 'treats x measures-with' in r.stdout
     assert '3 x 2' in r.stdout
     # the nxt hint hands over the exact render command for the top candidate
-    assert f'matrix {d} exp "treats x measures-with"' in r.stdout
+    assert f'keel matrix {d} exp "treats x measures-with"' in r.stdout
 
 
 def test_matrix_toon_keeps_gaps_first_class(tmp_path):
@@ -442,7 +442,7 @@ def test_matrix_flat_render_suggests_grouping(tmp_path):
     d = _matrix_dir(tmp_path)
     r = run_cli('matrix', 'exp', 'treats x measures-with', d, '--code-root', d)
     assert 'groupable by: lives-in (3/3 rows -> 2 groups)' in r.stdout
-    assert f'matrix {d} exp "treats x measures-with" lives-in' in r.stdout  # nxt: regroup
+    assert f'keel matrix {d} exp "treats x measures-with" lives-in' in r.stdout  # nxt: regroup
     # grouped, the suggestion disappears and the lock hint returns
     r = run_cli('matrix', 'exp', 'treats x measures-with', 'lives-in', d,
                 '--code-root', d)
@@ -511,4 +511,4 @@ def test_matrix_hint_compresses_container_to_slug(tmp_path):
     (tmp_path / 'lib.py').write_text('def built(): pass\n')
     (cont / 'demo.graph.toon').write_text(MATRIX_SLICE)
     r = run_cli('matrix', cont, 'exp', 'treats x measures-with', '--code-root', tmp_path)
-    assert 'matrix demo exp "treats x measures-with" lives-in' in r.stdout
+    assert 'keel matrix demo exp "treats x measures-with" lives-in' in r.stdout

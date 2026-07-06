@@ -113,10 +113,10 @@ def discover(tables, names, slice_str, args):
                    f"{f'{c['rows']} x {c['cols']}, {c['filled']} filled':<22}"
                    + (f"group: {c['group']}" if c['group'] else '')).rstrip())
     if cands:
-        emit.nxt(f"matrix {slice_str} {cands[0]['pivot']} \"{cands[0]['axes']}\" - render "
-                 "the densest projection", toon=args.toon)
+        emit.nxt(f"keel matrix {slice_str} {cands[0]['pivot']} \"{cands[0]['axes']}\" - "
+                 "render the densest projection", toon=args.toon)
     else:
-        emit.nxt(f"render {slice_str} - nothing to cross; declared views still render",
+        emit.nxt(f"keel render {slice_str} - nothing to cross; declared views still render",
                  toon=args.toon)
 
 
@@ -223,7 +223,7 @@ def main():
                 f"groups)" for c in gcands))
 
     if gcands:                             # a flat grid with a partition in reach: regroup first
-        emit.nxt(f"matrix {slice_str} {pivot} \"{m['row_kind']} x {m['col_kind']}\" "
+        emit.nxt(f"keel matrix {slice_str} {pivot} \"{m['row_kind']} x {m['col_kind']}\" "
                  f"{gcands[0]['kind']} - regroup the rows "
                  f"({gcands[0]['groups']} groups)", toon=args.toon)
     else:
