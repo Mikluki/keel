@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 
 import emit
+from refs import resolve
 from render import parse_toon
 
 ENGINE = Path(__file__).resolve().parent.parent / 'engine'
@@ -512,3 +513,23 @@ def test_matrix_hint_compresses_container_to_slug(tmp_path):
     (cont / 'demo.graph.toon').write_text(MATRIX_SLICE)
     r = run_cli('matrix', cont, 'exp', 'treats x measures-with', '--code-root', tmp_path)
     assert 'keel matrix demo exp "treats x measures-with" lives-in' in r.stdout
+
+
+# ============================================================================
+# refs.resolve: constants are symbols (the chosen-number discipline)
+# ============================================================================
+
+def test_resolve_python_constant(tmp_path):
+    # a chosen number is ref'd by symbol, never copied into the graph - the resolver
+    # must treat module-level assignments (bare and annotated) as definitions
+    (tmp_path / 'consts.py').write_text('BOOT_REPS = 1000\nBAND_Q: float = 0.95\n')
+    assert resolve('consts.py#BOOT_REPS', tmp_path)[0] == 'OK'
+    assert resolve('consts.py#BAND_Q', tmp_path)[0] == 'OK'
+    assert resolve('consts.py#GONE', tmp_path)[0] == 'MISSING-SYM'   # a rename fails the gate
+
+
+def test_resolve_rust_constant(tmp_path):
+    (tmp_path / 'consts.rs').write_text(
+        'pub const BOOT_REPS: usize = 1000;\npub static BAND_Q: f64 = 0.95;\n')
+    assert resolve('consts.rs#BOOT_REPS', tmp_path)[0] == 'OK'
+    assert resolve('consts.rs#BAND_Q', tmp_path)[0] == 'OK'

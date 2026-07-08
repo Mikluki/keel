@@ -101,7 +101,8 @@ def main():
         if warnings:
             print(f"  warnings ({len(warnings)}): cards over {CARD_MAX} chars are prose, not a table row -")
             print("    card = intent; rationale -> bodies/<id>.md; measured findings -> a results sidecar "
-                  "or refs.numbers data (a card is never drift-checked, so a stale number there passes green)")
+                  "or refs.numbers data; chosen constants -> code, ref'd by symbol (file#CONST) "
+                  "(a card is never drift-checked, so a stale number there passes green)")
             shown = warnings if args.full else warnings[:12]
             for w in shown:
                 split_note = "  (also has a body - rationale split two ways)" if w['has_body'] else ""

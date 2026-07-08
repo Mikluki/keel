@@ -160,6 +160,10 @@ its `=` means ref'd; this command and `check` do the drift-checking).
   plus its `touches` - never a restatement of what cells and bodies already say. A card is
   intent, NOT a lab notebook: measured numbers and run results never live in a card (nothing
   drift-checks one) - they go to `refs.numbers` data or a results sidecar (see Measurements).
+  A CHOSEN number (threshold, window, pre-registered constant) is code: name it in a
+  constant and point the node's `ref` at it (`ref,<node>,file.py#BOOT_REPS` - constants are
+  symbols too, so the ref is drift-checked). Symbols outlive values: a retune is a zero-diff
+  non-event for the graph; a rename fails `check` loud.
 - Model minimally: start at `id,state,card`; add a column only when a view needs it, an
   edge only when it changes a decision or a blast radius. Speculative structure is dead
   weight you re-sync forever.

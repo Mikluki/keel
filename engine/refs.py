@@ -3,9 +3,12 @@
 
 The graph<->code drift guard for the dev loop. A `ref` edge's target is a code
 coordinate: `path/file.rs#symbol`, `path/file.py` (file only), or a bare `symbol`
-searched across the root. Resolution uses ripgrep with Rust/Python definition
-patterns, so the agent never greps by hand and a renamed or missing symbol FAILS
-the gate instead of silently rotting the design.
+searched across the root. A symbol is any definition, module-level constants
+included (py `NAME = ...`/`NAME: t = ...`, rust `const`/`static`) - so a chosen
+number lives in code and the graph refs it by name: the value churns with zero
+graph diff, a rename fails the gate. Resolution uses ripgrep with Rust/Python
+definition patterns, so the agent never greps by hand and a renamed or missing
+symbol FAILS the gate instead of silently rotting the design.
 
     python refs.py *.graph.toon --code-root ../my-crate
     python refs.py .toons/<slug> --code-root ../my-crate --toon     # structured body for an agent

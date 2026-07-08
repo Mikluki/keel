@@ -91,9 +91,15 @@ Constraint tables are just node tables by convention - nothing special to the en
   target on a `ref` edge is the separate, hard `refs`/`check` gate.
 - **`ref` edges are special**: `to` is a CODE coordinate, not a node id, and is checked by
   `refs.py` (ripgrep), not node resolution. Three target forms:
-  - `file.py#symbol` / `file.rs#Struct` - a symbol in a specific file
+  - `file.py#symbol` / `file.rs#Struct` - a symbol in a specific file. A symbol is any
+    definition, module-level constants included: `file.py#BOOT_REPS` matches
+    `BOOT_REPS = ...` / `BOOT_REPS: int = ...`, `file.rs#MAX_LAG` matches `const`/`static`.
   - `path/to/file.rs` - a whole file
   - `bare_symbol` - searched across `--code-root` (ambiguous if it hits multiple files)
+
+  So a CHOSEN number (threshold, window, pre-registered constant) never appears in the
+  graph: the card states the decision, the `ref` names the constant, the value lives in
+  code. The value can churn with zero graph diff; a rename fails `check`.
 
 ## `views` - presentation (reserved table; usually in a `*.views.toon`)
 
