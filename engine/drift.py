@@ -85,6 +85,34 @@ def evidence_str(status, ev, full):
     return ev if ev and ev != 'file exists' else ''
 
 
+def jump_of(target, status, ev, root):
+    """(location, snippet) for one resolve(): the assembled jump handle + the bare match.
+
+    location is the root-relative `file:line` a human clicks / an agent Reads at ('' when
+    there is none); snippet is the matched line with rg's prefixes stripped, since the
+    location owns them. Assembled from resolve()'s evidence shapes: a file-scoped hit is
+    `line:content` (rg omits the filename), a root-wide bare-symbol hit is `path:line:content`.
+    Non-OK statuses have no location; their evidence passes through evidence_str untouched.
+    """
+    if status != 'OK':
+        return '', None
+    if '#' in target:
+        rel = target.split('#', 1)[0]
+    elif '/' in target or Path(target).suffix in PAT:
+        return target, None                # file-only ref: the file IS the location
+    else:
+        rel = None                         # bare symbol: the path comes from the hit
+    if rel is not None:
+        line, _, content = ev.partition(':')
+        return (f"{rel}:{line}", content) if line.isdigit() else (rel, ev)
+    p, line, content = ev.split(':', 2)
+    try:
+        p = str(Path(p).resolve().relative_to(Path(root).resolve()))
+    except ValueError:
+        pass                               # hit outside root: keep the path as reported
+    return f"{p}:{line}", content
+
+
 def main():
     if not shutil.which('rg'):
         emit.die('NO_RIPGREP', 'drift needs ripgrep (rg) on PATH', exit_code=3)

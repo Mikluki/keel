@@ -25,7 +25,7 @@ from pathlib import Path
 
 import containers
 import emit
-from drift import evidence_str, resolve
+from drift import evidence_str, jump_of, resolve
 from render import SYSTEM_TABLES, load_union, resolve_paths, split, state_of
 
 BODY_LINES = 12          # prose body truncated past this under --brief; full by default
@@ -44,6 +44,14 @@ def ref_matches(tables, query):
                     and '#' in t and t.rsplit('#', 1)[1] == query)):
             hits.append(e)
     return hits
+
+
+def _resolved_row(target, status, ev, root, full):
+    """One resolved ref as a display/toon row: status + target + jump location + evidence
+    (the bare matched line for OK - the location owns the file:line prefixes)."""
+    loc, snip = jump_of(target, status, ev, root)
+    return {'status': status, 'target': target, 'location': loc,
+            'evidence': snip if snip is not None else evidence_str(status, ev, full)}
 
 
 def code_mode(args, query, tables, slices):
@@ -69,15 +77,14 @@ def code_mode(args, query, tables, slices):
     code_rows = []
     if args.root is not None:
         for t in targets:
-            status, ev = resolve(t, args.root)
-            code_rows.append({'status': status, 'target': t,
-                              'evidence': evidence_str(status, ev, args.full)})
+            code_rows.append(_resolved_row(t, *resolve(t, args.root),
+                                           args.root, args.full))
 
     names = ', '.join(n for n, _, _ in slices)
     if args.toon:
         tbls = {'nodes': (['id', 'table', 'state', 'card', 'target'], ref_rows)}
         if args.root is not None:
-            tbls['code'] = (['status', 'target', 'evidence'], code_rows)
+            tbls['code'] = (['status', 'target', 'location', 'evidence'], code_rows)
         print(emit.toon({'query': query, 'slices': names, 'nodes': len(ref_rows),
                          'targets': len(targets)}, tbls))
     else:
@@ -90,8 +97,9 @@ def code_mode(args, query, tables, slices):
         if code_rows:
             print("\ncode:")
             for c in code_rows:
+                show = c['location'] or c['target']
                 tail = f"  [{c['evidence']}]" if c['evidence'] else ''
-                print(f"  {c['status']:12} {c['target']}{tail}")
+                print(f"  {c['status']:12} {show}{tail}")
 
     slice_str = ' '.join(containers.display_arg(a) for a in args.positional[1:]) or '.'
     emit.nxt(f"keel context {ref_rows[0]['id']} {slice_str} - the pinning node's full "
@@ -127,7 +135,8 @@ def main():
 
     res = {}                     # explicit --code-root only (see module docstring)
     if args.root is not None:
-        res = {e['other']: resolve(e['other'], args.root)
+        res = {e['other']: _resolved_row(e['other'], *resolve(e['other'], args.root),
+                                         args.root, args.full)
                for e in edges if e['kind'] == 'ref' and e['dir'] == 'out'}
 
     constraints = []
@@ -149,10 +158,8 @@ def main():
                 'edges': (['dir', 'kind', 'other'], edges),
                 'constraints': (['id', 'table', 'statement'], constraints)}
         if args.root is not None:
-            tbls['code'] = (['status', 'target', 'evidence'],
-                            [{'status': s, 'target': t,
-                              'evidence': evidence_str(s, ev, args.full)}
-                             for t, (s, ev) in res.items()])
+            tbls['code'] = (['status', 'target', 'location', 'evidence'],
+                            list(res.values()))
         print(emit.toon(
             {'node': nid, 'table': table, 'slice': prov.get(nid), 'state': st,
              'edges': len(edges), 'refs': n_refs, 'constraints': len(constraints),
@@ -168,9 +175,10 @@ def main():
             arrow = '->' if e['dir'] == 'out' else '<-'
             line = f"  {arrow} [{e['kind']}] {e['other']}"
             if e['other'] in res:
-                s, ev = res[e['other']]
-                evs = evidence_str(s, ev, args.full)
-                line += f"   {s}" + (f" [{evs}]" if evs else '')
+                c = res[e['other']]
+                loc = c['location'] if c['location'] != e['other'] else ''
+                line += (f"   {c['status']}" + (f" {loc}" if loc else '')
+                         + (f" [{c['evidence']}]" if c['evidence'] else ''))
             print(line)
         if not edges:
             print("  0 - nothing references this node and it references nothing")

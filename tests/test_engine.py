@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 
 import emit
-from drift import resolve
+from drift import jump_of, resolve
 from render import parse_toon
 
 ENGINE = Path(__file__).resolve().parent.parent / 'engine'
@@ -563,6 +563,7 @@ def test_context_resolves_refs_inline_only_with_root(tmp_path):
     assert 'BOOT_REPS = 1000' not in r.stdout          # graph-only without the flag
     r = run_cli('context', 'boot', d, '--code-root', d)
     assert 'OK' in r.stdout and 'BOOT_REPS = 1000' in r.stdout
+    assert 'lib.py:1' in r.stdout                      # the assembled file:line jump handle
 
 
 def test_context_code_coordinate_reverse_lookup(tmp_path):
@@ -574,6 +575,7 @@ def test_context_code_coordinate_reverse_lookup(tmp_path):
         assert 'boot' in r.stdout and 'not a CLI knob' in r.stdout
     r = run_cli('context', 'BOOT_REPS', d, '--code-root', d)
     assert 'BOOT_REPS = 1000' in r.stdout              # rooted: the coordinate resolves too
+    assert 'lib.py:1' in r.stdout
     r = run_cli('context', 'lib.py#GONE', d)           # neither node nor ref target
     assert r.returncode == 3
     assert 'neither a node id nor a ref target' in r.stderr
@@ -582,6 +584,20 @@ def test_context_code_coordinate_reverse_lookup(tmp_path):
 def test_context_toon_gains_code_table(tmp_path):
     d = _ctx_dir(tmp_path)
     r = run_cli('context', 'boot', d, '--code-root', d, '--toon')
-    assert 'code[1]{status,target,evidence}' in r.stdout
+    assert 'code[1]{status,target,location,evidence}' in r.stdout
+    assert 'lib.py:1' in r.stdout
     r = run_cli('context', 'boot', d, '--toon')
     assert 'code[' not in r.stdout                     # no root, no code table
+
+
+def test_jump_of_assembles_root_relative_location(tmp_path):
+    (tmp_path / 'lib.py').write_text('BOOT_REPS = 1000\n')
+    # file-scoped target: rg gives `line:content`, the target supplies the file
+    loc, snip = jump_of('lib.py#BOOT_REPS', *resolve('lib.py#BOOT_REPS', tmp_path), tmp_path)
+    assert loc == 'lib.py:1' and snip == 'BOOT_REPS = 1000'
+    # bare symbol: rg gives an absolute `path:line:content` - normalized to root-relative
+    loc, snip = jump_of('BOOT_REPS', *resolve('BOOT_REPS', tmp_path), tmp_path)
+    assert loc == 'lib.py:1' and snip == 'BOOT_REPS = 1000'
+    # non-OK: no location, evidence untouched
+    loc, snip = jump_of('lib.py#GONE', *resolve('lib.py#GONE', tmp_path), tmp_path)
+    assert loc == '' and snip is None
