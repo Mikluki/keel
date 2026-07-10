@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""context: the 1-hop context of a THING - a graph node, or a code coordinate.
+"""context: the 1-hop context of a THING - a graph node, a node SET, or a code coordinate.
 
 <node>: the node's attributes + bodies/ prose + every edge touching it (in & out =
 the blast radius) + every invariant/decision that `touches` it + its code refs.
@@ -10,14 +10,25 @@ Resolution runs ONLY with a --code-root - typed, or supplied by the .toons slug
 contract (a bare <slug> arg injects the repo root). Never inferred from a plain path:
 a guessed root would decorate every ref with false MISSING noise.
 
+<node set>: a `[table:]col=val` selector (recognized by the '=') -> the INDUCED
+SUBGRAPH of every node whose column matches: the members, the edges AMONG them
+(internal) vs the edges to the outside (boundary = the seams), each invariant/decision
+touching the set ONCE (with which members), and the members' code refs (deduped by
+target, resolved inline when rooted). This is the GROUP answer a single-node context
+cannot give - `metric:tier=B` enumerates the whole tier from the graph's own column,
+so a class ask ("context on B") never degrades into a hand-typed, half-complete member
+list. `table:` scopes to one node table; bare `col=val` scans every table; `state=canon`
+matches unset-state nodes too (unset =~ canon).
+
 <code coordinate>: the REVERSE question - which graph nodes pin this code, with their
 cards. Ask before editing code the graph may have opinions about. A coordinate is an
 exact ref target (`py/pkg/rigor.py#BOOT_REPS`), a /-boundary suffix of one
 (`rigor.py#BOOT_REPS`), or a bare symbol (`BOOT_REPS`). Anything that is neither a
-node id nor a matching ref target dies loud naming both.
+node id, a selector, nor a matching ref target dies loud naming both.
 
     python context.py <node-id> [slices...]
     python context.py <node> .toons/<slug> --code-root ../crate   # refs resolve inline
+    python context.py metric:tier=B .toons/<slug> --code-root ../crate   # a node SET's subgraph
     python context.py src/auth.rs#AuthService .toons/<slug>       # code -> graph
     python context.py <node> .toons/<slug> --brief     # truncate the prose body (full by default)
 """
@@ -107,6 +118,143 @@ def code_mode(args, query, tables, slices):
              "1-hop context", toon=args.toon, guide=True)
 
 
+def parse_selector(sel):
+    """A node-set selector `[table:]col=val` -> (table|None, col, val). Recognized by the
+    '=' (no node id or code coordinate carries one). `table:` scopes the match to one node
+    table; a bare `col=val` scans every table. `val` may itself contain '=' (split once)."""
+    lhs, val = sel.split('=', 1)
+    if ':' in lhs:
+        table, col = lhs.split(':', 1)
+        table = table.strip() or None
+    else:
+        table, col = None, lhs
+    return table, col.strip(), val.strip()
+
+
+def _cell(row, col):
+    """The value the selector matches on: the DECLARED state (unset =~ canon) for `state`,
+    else the literal cell. Matching state_of keeps `state=canon` from silently dropping
+    unset-canon nodes - the same incompleteness the set query exists to prevent."""
+    return state_of(row) if col == 'state' else row.get(col)
+
+
+def subgraph_mode(args, sel, tables, slices):
+    """selector `[table:]col=val` -> the INDUCED SUBGRAPH of every matching node: the
+    members, the edges among them (internal) vs to the outside (boundary = the seams), each
+    constraint touching any member ONCE with which members it hits, and the members' code
+    refs (deduped by target, resolved inline when rooted). The group answer a single-node
+    context cannot give - enumerate + blast radius in one call, nothing double-printed."""
+    table, col, val = parse_selector(sel)
+    hits = []
+    for tname, rows in tables.items():
+        if tname in SYSTEM_TABLES or (table is not None and tname != table):
+            continue
+        for r in rows:
+            if 'id' in r and _cell(r, col) == val:
+                hits.append((tname, r))
+    names = ', '.join(n for n, _, _ in slices)
+    if not hits:
+        scope = f"{table}:" if table else ''
+        emit.die('NO_MATCH', f"no node matches {scope}{col}={val!r} in the loaded union "
+                 f"({names})", exit_code=3)
+
+    members = [{'id': r['id'], 'table': tname, 'state': state_of(r),
+                'card': r.get('card', '')} for tname, r in hits]
+    inset = {r['id'] for _, r in hits}
+
+    internal, boundary, ref_edges = [], [], []
+    for e in tables.get('edges', []):
+        f, t, kind = e['from'], e['to'], e['kind']
+        if kind == 'ref':
+            if f in inset:
+                ref_edges.append(e)
+        elif f in inset and t in inset:
+            internal.append({'kind': kind, 'from': f, 'to': t})
+        elif f in inset:
+            boundary.append({'dir': 'out', 'kind': kind, 'member': f, 'other': t})
+        elif t in inset:
+            boundary.append({'dir': 'in', 'kind': kind, 'member': t, 'other': f})
+
+    constraints = []
+    for tname, rows in tables.items():
+        if tname in SYSTEM_TABLES:
+            continue
+        for r in rows:
+            touched = [n for n in split(r.get('touches', '')) if n in inset]
+            if touched:
+                msg = r.get('statement') or r.get('why') or r.get('card') or ''
+                constraints.append({'id': r['id'], 'table': tname,
+                                    'touches': ' '.join(touched), 'statement': msg})
+
+    by_target = {}                        # dedupe refs by target, keep every owning member
+    for e in ref_edges:
+        by_target.setdefault(e['to'], []).append(e['from'])
+    code_rows = []
+    for target, owners in by_target.items():
+        row = {'member': ' '.join(owners), 'target': target}
+        if args.root is not None:
+            got = _resolved_row(target, *resolve(target, args.root),
+                                args.root, args.full)
+            row.update({'status': got['status'], 'location': got['location'],
+                        'evidence': got['evidence']})
+        code_rows.append(row)
+
+    if args.toon:
+        tbls = {'members': (['id', 'table', 'state', 'card'], members),
+                'internal': (['kind', 'from', 'to'], internal),
+                'boundary': (['dir', 'kind', 'member', 'other'], boundary),
+                'constraints': (['id', 'table', 'touches', 'statement'], constraints)}
+        if args.root is not None:
+            tbls['code'] = (['member', 'status', 'target', 'location', 'evidence'],
+                            code_rows)
+        else:
+            tbls['refs'] = (['member', 'target'], code_rows)
+        print(emit.toon(
+            {'selector': sel, 'slices': names, 'nodes': len(members),
+             'internal': len(internal), 'boundary': len(boundary),
+             'constraints': len(constraints), 'refs': len(code_rows)}, tbls))
+    else:
+        print(f"# {sel}   (node set)   {len(members)} nodes, {len(internal)} internal / "
+              f"{len(boundary)} boundary edges, {len(constraints)} constraints, "
+              f"{len(code_rows)} refs")
+        for m in members:
+            print(f"  {m['id']}  ({m['table']}, {m['state']}): {m['card']}")
+
+        print(f"\ninternal edges: {len(internal)}")
+        for e in internal:
+            print(f"  {e['from']} -[{e['kind']}]-> {e['to']}")
+        if not internal:
+            print("  0 - the set has no edges among its own members")
+
+        print(f"\nboundary (seams): {len(boundary)}")
+        for e in boundary:
+            arrow = '->' if e['dir'] == 'out' else '<-'
+            print(f"  {arrow} [{e['kind']}] {e['other']}   ({e['member']})")
+        if not boundary:
+            print("  0 - the set connects to nothing outside itself")
+
+        print(f"\nconstraints that touch the set: {len(constraints)}")
+        for c in constraints:
+            print(f"  {c['id']} ({c['table']}) [{c['touches']}]: {c['statement']}")
+        if not constraints:
+            print("  0 - no invariant or decision touches any member")
+
+        if code_rows:
+            print(f"\ncode refs: {len(code_rows)}")
+            for c in code_rows:
+                if args.root is not None:
+                    show = c['location'] or c['target']
+                    tail = f"   [{c['evidence']}]" if c['evidence'] else ''
+                    print(f"  {c['status']:12} {show}   ({c['member']}){tail}")
+                else:
+                    print(f"  {c['target']}   ({c['member']})")
+
+    slice_str = ' '.join(containers.display_arg(a) for a in args.positional[1:]) or '.'
+    emit.nxt(f"keel context <member> {slice_str} --code-root <code> to drill into one, then "
+             f"edit the graph + keel check {slice_str} --code-root <code>",
+             toon=args.toon, guide=True)
+
+
 def main():
     args = emit.parse(sys.argv[1:], cmd='context')
     if not args.positional:
@@ -114,6 +262,10 @@ def main():
                  'context <node|file#symbol> [slices...]')
     nid, paths = args.positional[0], resolve_paths(args.positional[1:])
     slices, tables, prov = load_union(paths)
+
+    if '=' in nid:                        # a [table:]col=val set selector (never an id/coord)
+        subgraph_mode(args, nid, tables, slices)
+        return
 
     row, table = None, None
     for tname, rows in tables.items():

@@ -603,6 +603,91 @@ def test_hint_split_guide_human_only_remediation_both(tmp_path):
     assert 'next:' in agent.stderr and 'next:' not in agent.stdout
 
 
+# ============================================================================
+# context: the node-SET selector (induced subgraph of `[table:]col=val`)
+# ============================================================================
+
+SET_SLICE = '''slice: t
+metric[3]{id,tier,state,card}:
+  m-a,B,canon,"first B, canon"
+  m-b,B,explore,"second B, explore"
+  m-c,A,canon,"an A metric, different tier"
+
+gear[1]{id,state,card}:
+  g,canon,"outside the tier"
+
+edges[4]{kind,from,to}:
+  hardens,m-a,m-b
+  measures,g,m-a
+  ref,m-a,lib.py#K
+  ref,m-b,lib.py#K
+
+decision[1]{id,touches,statement}:
+  D-x,"m-a,m-b","both B share this decision"
+'''
+
+
+def _set_dir(tmp_path):
+    (tmp_path / 'lib.py').write_text('K = 7\n')
+    write_slice(tmp_path, SET_SLICE)
+    return tmp_path
+
+
+def test_context_selector_induced_subgraph(tmp_path):
+    # a class ask enumerates from the tier column - including the explore member a
+    # guess-and-loop would drop; the intra-set edge is internal, the outside edge a seam
+    d = _set_dir(tmp_path)
+    r = run_cli('context', 'metric:tier=B', d, '--code-root', d, '--toon')
+    assert r.returncode == 0, r.stdout + r.stderr
+    scalars, tables = parse_toon(r.stdout)
+    assert scalars['selector'] == 'metric:tier=B' and scalars['nodes'] == '2'
+    assert {m['id'] for m in tables['members']} == {'m-a', 'm-b'}
+    assert tables['internal'] == [{'kind': 'hardens', 'from': 'm-a', 'to': 'm-b'}]
+    assert tables['boundary'] == [{'dir': 'in', 'kind': 'measures',
+                                   'member': 'm-a', 'other': 'g'}]
+
+
+def test_context_selector_constraint_once_with_members(tmp_path):
+    # a decision touching two members is listed ONCE, naming which - not re-printed per node
+    _, tables = parse_toon(run_cli('context', 'metric:tier=B', _set_dir(tmp_path),
+                                   '--toon').stdout)
+    assert len(tables['constraints']) == 1
+    assert tables['constraints'][0]['id'] == 'D-x'
+    assert tables['constraints'][0]['touches'] == 'm-a m-b'
+
+
+def test_context_selector_refs_dedupe_by_target(tmp_path):
+    # m-a and m-b both ref lib.py#K -> ONE code row, both owners, resolved once
+    d = _set_dir(tmp_path)
+    scalars, tables = parse_toon(run_cli('context', 'metric:tier=B', d,
+                                         '--code-root', d, '--toon').stdout)
+    assert scalars['refs'] == '1' and len(tables['code']) == 1
+    assert tables['code'][0]['target'] == 'lib.py#K'
+    assert tables['code'][0]['member'] == 'm-a m-b'
+    assert tables['code'][0]['status'] == 'OK' and 'K = 7' in tables['code'][0]['evidence']
+
+
+def test_context_selector_state_default_matches_unset(tmp_path):
+    # `state=canon` must catch nodes with NO state column (unset =~ canon) - the same
+    # completeness the set query exists to guarantee
+    write_slice(tmp_path, 'slice: t\nn[2]{id,card}:\n  a,"no state col"\n  b,"also unset"\n')
+    scalars, tables = parse_toon(run_cli('context', 'state=canon', tmp_path, '--toon').stdout)
+    assert scalars['nodes'] == '2'
+    assert {m['id'] for m in tables['members']} == {'a', 'b'}
+
+
+def test_context_selector_bare_col_scans_all_tables(tmp_path):
+    # unscoped `tier=B` finds the B metrics without naming their home table
+    scalars, _ = parse_toon(run_cli('context', 'tier=B', _set_dir(tmp_path), '--toon').stdout)
+    assert scalars['nodes'] == '2'
+
+
+def test_context_selector_no_match_dies_loud(tmp_path):
+    r = run_cli('context', 'metric:tier=Z', _set_dir(tmp_path))
+    assert r.returncode == 3
+    assert 'NO_MATCH' in r.stderr and 'tier=' in r.stderr
+
+
 def test_jump_of_assembles_root_relative_location(tmp_path):
     (tmp_path / 'lib.py').write_text('BOOT_REPS = 1000\n')
     # file-scoped target: rg gives `line:content`, the target supplies the file

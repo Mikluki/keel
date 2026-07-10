@@ -94,7 +94,16 @@ The execution path for a LOCKED change:
    reads the graph only. context also answers the REVERSE question: `keel context
    <file#symbol> <slices...>` lists the graph nodes whose refs pin that code, with their
    cards - run it BEFORE editing code the graph may have opinions about (a bare symbol or
-   a path suffix like `rigor.py#BOOT_REPS` works too).
+   a path suffix like `rigor.py#BOOT_REPS` works too). context takes a THIRD form for a
+   GROUP: `keel context <table:col=val> <slices...>` - a `[table:]col=val` selector
+   (`metric:tier=B`, `state=explore`) resolves to EVERY node whose column matches and prints
+   their INDUCED SUBGRAPH: the members, the edges among them vs the seams to the outside,
+   each constraint touching the set once, and their deduped refs (resolved with
+   `--code-root`). When the ask names a CLASS not a node - a tier, a state, a whole table -
+   this is the tool: it enumerates from the graph's own column, so you never hand-type a
+   member list and never drop one. Deriving the set yourself and looping single-node context
+   over guessed ids is the anti-pattern - you cannot loop over a set you have not grounded;
+   read the column, or let the selector read it for you.
 2. **CLASSIFY** the change:
    - logic-only (a formula / impl detail) -> the graph is UNCHANGED (the ref still points)
    - structural (new node/edge, changed decision/invariant) -> edit the GRAPH FIRST

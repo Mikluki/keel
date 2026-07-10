@@ -8,7 +8,7 @@
     keel todo    [goal] [slices...] --code-root R   ranked worklist: what next (fix > ready lanes > decide)
     keel matrix  [slices...] [pivot "<a> x <b>"] --code-root R   coverage pivot (no axes: rank candidates)
     keel check   [slices...] --code-root R   lint + drift (the loop's CHECK step)
-    keel context <node|file#sym> [slices...] [--code-root R]   1-hop edit context (PICK step); with R refs resolve inline; file#sym reverses: who pins that code
+    keel context <node|col=val|file#sym> [slices...] [--code-root R]   1-hop edit context (PICK step); with R refs resolve inline; col=val = a node SET's induced subgraph; file#sym reverses: who pins that code
     keel find    <source-path>               which .toons/ container anchors a file
     keel new     <anchor> [--code-root R]    scaffold a fresh .toons/<slug>/ (cold start)
 
