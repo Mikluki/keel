@@ -22,6 +22,8 @@ invariant), find.py (reverse lookup), and watch.py (the live monitor).
 import re
 from pathlib import Path, PurePosixPath
 
+import emit
+
 # ============================================================================
 # CONFIG
 # ============================================================================
@@ -226,8 +228,8 @@ def expand_slugs(argv, cmd):
             hit = True
         else:
             out.append(tok)
-    if hit and cmd in ROOT_CMDS and '--code-root' not in out:
-        out += ['--code-root', str(toons.parent)]
+    if hit and cmd in ROOT_CMDS and not any(f in out for f in emit.ROOT_FLAGS):
+        out += [emit.ROOT, str(toons.parent)]
     return out
 
 

@@ -15,7 +15,7 @@
 slices default to *.graph.toon in the cwd; a directory arg is globbed. In a repo with a
 `.toons/` dir, a bare `<slug>` (e.g. `check scripts-viz-lenses`) resolves to that
 container and defaults --code-root to the repo root - no long paths on every call.
---code-root is the CODE root for ref resolution (your crate/package).
+--code-root (-cc) is the CODE root for ref resolution (your crate/package).
 Every command takes --toon (structured body) and -h/--help (its own reference); -hh also
 lists the human/setup commands (view, index, watch).
 
@@ -61,7 +61,7 @@ def run(script, argv):
 def strip_root(argv):
     out, i = [], 0
     while i < len(argv):
-        if argv[i] == '--code-root':
+        if argv[i] in emit.ROOT_FLAGS:
             i += 2
         else:
             out.append(argv[i])

@@ -24,6 +24,12 @@ from pathlib import Path
 from typing import NoReturn, Optional
 
 
+# ---- shared CLI flag names (single source; consumed by parse + cli.strip_root + containers) ----
+ROOT = '--code-root'        # the CODE root for ref resolution (your crate/package)
+ROOT_SHORT = '-cc'          # shorthand for --code-root
+ROOT_FLAGS = (ROOT, ROOT_SHORT)
+
+
 @dataclass
 class Args:
     positional: list = field(default_factory=list)
@@ -34,7 +40,7 @@ class Args:
 
 
 def parse(argv, *, allow_root=True, cmd='keel', flags=()):
-    """Split argv into positionals + the known flags (--code-root/--toon/--full/--brief).
+    """Split argv into positionals + the known flags (--code-root [-cc], --toon, --full, --brief).
 
     Output is FULL by default; `--brief` opts into size-hinted truncation. `--full` is kept
     as an accepted no-op (back-compat / muscle memory). Any other `-flag` is fatal (P6):
@@ -46,9 +52,9 @@ def parse(argv, *, allow_root=True, cmd='keel', flags=()):
     i = 0
     while i < len(argv):
         tok = argv[i]
-        if tok == '--code-root' and allow_root:
+        if tok in ROOT_FLAGS and allow_root:
             if i + 1 >= len(argv):
-                die('BAD_FLAG', f"'{cmd}': --code-root needs a path argument")
+                die('BAD_FLAG', f"'{cmd}': {tok} needs a path argument")
             a.root = Path(argv[i + 1])
             i += 2
         elif tok == '--toon':
