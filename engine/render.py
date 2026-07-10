@@ -7,7 +7,7 @@ What node/edge KINDS exist and which VIEWS to draw are declared as data in the
 
     table  - list a node table's columns
     join   - per node, edges of a kind touching it -> the other endpoint + a column
-    detail - per node, every row that `touches` it + its prose body + logic ref
+    entry  - per node, every row that `touches` it + its prose body + logic ref
     matrix - two edge kinds crossed through a pivot table -> coverage grid (gaps included)
 
 Every node renders; the prose appendix is GROUPED by commitment state under `# Canon`,
@@ -165,7 +165,7 @@ def lookup(tables, node_id):
     return None
 
 
-DETAIL_BODY_LINES = 8    # detail dumps many bodies; keep each compact (P3)
+ENTRY_BODY_LINES = 8     # entry dumps many bodies; keep each compact (P3)
 
 
 def slug(title):
@@ -334,7 +334,7 @@ def body_path(nid, ctx):
 
 def build_bodies(tables, ctx):
     """Every kept node's FULL prose body, spec-ordered - the render's self-contained
-    reference appendix. `detail` clips bodies (P3); this dumps the whole text so the
+    reference appendix. `entry` clips bodies (P3); this dumps the whole text so the
     live-preview file holds the complete spec without opening each bodies/<id>.md."""
     keep, items, seen = ctx['keep'], [], set()
     for tname, rows in tables.items():
@@ -353,7 +353,7 @@ def build_bodies(tables, ctx):
     return items
 
 
-def build_detail(tables, spec, ctx):
+def build_entry(tables, spec, ctx):
     """Richer than a flat table: per node its constraints, logic ref, and prose body."""
     prov, logic, keep = ctx['prov'], ctx['logic'], ctx['keep']
     items = []
@@ -490,7 +490,7 @@ def matrix_toon_rows(m):
     return ['row', 'col', 'via', 'state'], rows
 
 
-def human_detail(items, full):
+def human_entry(items, full):
     out = []
     for it in items:
         tag = '' if it['state'] == 'canon' else f"  [{it['state']}]"
@@ -500,7 +500,7 @@ def human_detail(items, full):
         if it['logic']:
             out.append(f"Logic -> {it['logic']}")
         if it['body']:
-            n = len(it['body'].splitlines()) if full else DETAIL_BODY_LINES
+            n = len(it['body'].splitlines()) if full else ENTRY_BODY_LINES
             demoted = demote_body_headings(it['body'], under=3)
             out.append('')
             out.append(emit.clip(demoted, n, f"full: read bodies/{it['id']}.md or pass --full"))
@@ -521,7 +521,7 @@ def human_bodies(items):
     return out
 
 
-def detail_toon_rows(items):
+def entry_toon_rows(items):
     return ['id', 'state', 'card', 'constraints', 'logic', 'body'], [
         {'id': it['id'], 'state': it['state'], 'card': it['card'], 'logic': it['logic'],
          'constraints': ' | '.join(f"{c}: {m}" for c, m in it['constraints']),
@@ -552,8 +552,8 @@ def main():
                 toon_tables[name] = build_table(tables, v, ctx)
             elif v['kind'] == 'join':
                 toon_tables[name] = build_join(tables, v, ctx)
-            elif v['kind'] == 'detail':
-                toon_tables[name] = detail_toon_rows(build_detail(tables, v, ctx))
+            elif v['kind'] == 'entry':
+                toon_tables[name] = entry_toon_rows(build_entry(tables, v, ctx))
             elif v['kind'] == 'matrix':
                 toon_tables[name] = matrix_toon_rows(build_matrix(tables, v))
             else:
@@ -575,9 +575,9 @@ def main():
         elif v['kind'] == 'join':
             cols, rows = build_join(tables, v, ctx)
             body = human_join(v, cols, rows) if rows else [f"(0 {v['arg']} edges)"]
-        elif v['kind'] == 'detail':
-            items = build_detail(tables, v, ctx)
-            body = human_detail(items, args.full) if items else ["(0 nodes)"]
+        elif v['kind'] == 'entry':
+            items = build_entry(tables, v, ctx)
+            body = human_entry(items, args.full) if items else ["(0 nodes)"]
         elif v['kind'] == 'matrix':
             body = human_matrix(v, build_matrix(tables, v))
         else:

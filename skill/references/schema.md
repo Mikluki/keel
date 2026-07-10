@@ -43,7 +43,7 @@ verbatim. Nothing else is significant - no nesting, no types.
     refs: {logic: src/auth/, numbers: results/}       # freeform pointers to code/results roots
 
 `slice` labels the slice, and `refs.logic` is the PRIMARY code anchor - the engine reads it
-(`render.py`) and it drives the container slug, the `detail` view's `Logic ->` line, and
+(`render.py`) and it drives the container slug, the `entry` view's `Logic ->` line, and
 `ref`/`status` resolution. `owns` and any non-`logic` `refs` keys (e.g. `numbers:`) are
 documentation.
 
@@ -65,7 +65,7 @@ Reserved columns understood on node/constraint rows:
   value is flagged by lint and treated as canon). What each lane means for `check`/`render` is
   covered in SKILL.md's "New ideas" section, not repeated here.
 - **`touches`** - a comma-separated list of node ids this row relates to. Used on
-  constraint tables (invariants, decisions) so the `detail` view can gather every rule that
+  constraint tables (invariants, decisions) so the `entry` view can gather every rule that
   touches a node, and lint can check the targets resolve. Example:
   `mfa-required,"authsvc,mfa","admin scopes always require the second factor"`.
 
@@ -107,15 +107,18 @@ Constraint tables are just node tables by convention - nothing special to the en
     views[N]{kind,title,table,arg,extra}:
       table,Components,components,"id,layer,card",          # arg = columns to show
       join,Enforced policies,components,enforces,card         # arg = edge kind, extra = other-endpoint column
-      detail,Component detail,components,,                    # arg/extra empty
+      entry,Component entry,components,,                    # arg/extra empty
 
 Three view primitives (the only ones the renderer knows):
 
 - **`table`** - list a node table. `arg` = comma-separated columns to print.
 - **`join`** - per node in `table`, follow every edge of kind `arg` and print the other
   endpoint plus its `extra` column.
-- **`detail`** - per node in `table`, print its attributes, its prose `bodies/<id>.md`, every
-  row that `touches` it, and its `ref -> code` target.
+- **`entry`** - per node in `table`, print its attributes, its prose `bodies/<id>.md`, every
+  row that `touches` it, and its `ref -> code` target. This is the render-time, human-facing
+  READ view of a node - its argument on the page. Its interactive, agent-facing counterpart is
+  `keel context <node>` (the EDIT view), which instead walks the node's full edge blast-radius
+  and resolves its refs against live code; each omits the other's half by design.
 
 ## `rules` - declarative gates (reserved table)
 
@@ -137,7 +140,7 @@ Three view primitives (the only ones the renderer knows):
 - `*.graph.toon` - a slice's nodes + edges (+ invariants/decisions/rules).
 - `*.views.toon` - presentation only; renders against one or more graph slices (`views`/`rules`
   can live in either - they union across all loaded slices).
-- `bodies/<id>.md` - a node's prose drill-down, surfaced by `context`, the `detail` view (clipped),
+- `bodies/<id>.md` - a node's prose drill-down, surfaced by `context`, the `entry` view (clipped),
   and the render's trailing appendix (full text, one `## <id>` per body, grouped under
   `# Canon`/`# Explore`/`# Dropped`).
 - `*.results.toon` - an OPT-IN measurement sidecar for an EMPIRICAL graph only (see SKILL.md
@@ -177,4 +180,4 @@ A full, tiny, domain-agnostic example (non-RNG, so nothing here is engine vocabu
     views[3]{kind,title,table,arg,extra}:
       table,Components,components,"id,layer,card",
       join,Enforced policies,components,enforces,card
-      detail,Component detail,components,,
+      entry,Component entry,components,,

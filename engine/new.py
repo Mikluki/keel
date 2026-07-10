@@ -36,7 +36,7 @@ edges[1]{{kind,from,to}}:
 views[3]{{kind,title,table,arg,extra}}:
   table,Nodes,nodes,"id,card",
   join,Relations,nodes,relates,card
-  detail,Node detail,nodes,,
+  entry,Node entry,nodes,,
 '''
 
 

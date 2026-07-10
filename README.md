@@ -77,7 +77,7 @@ and 10 are argument-layer fixes in `cli.py`; 7 is the opt-in `watch` monitor.
 
 1. **Token-efficient output** - TOON format for ~40% token savings over JSON.
    - [x] `--toon` on every command via `emit.toon` (round-trips `render.parse_toon`).
-2. **Minimal default schemas** - 3-4 fields per list item, not 10+.  (ok; render `detail`=6 widest)
+2. **Minimal default schemas** - 3-4 fields per list item, not 10+.  (ok; render `entry`=6 widest)
 3. **Content truncation** - truncate large text fields with size hints and escape hatches.
    - [x] `emit.clip`/`head`/`trunc_list` truncate bodies + long lists with a size hint and
      a `--full` escape hatch (generalizes drift's AMBIGUOUS count+head).
@@ -115,7 +115,7 @@ and 10 are argument-layer fixes in `cli.py`; 7 is the opt-in `watch` monitor.
                    also symlinks completion/_keel onto $fpath (oh-my-zsh auto-detected)
     engine/        the agnostic tool (code only, no domain words)
       cli.py         entry point (-h: render|lint|drift|status|todo|matrix|check|context|find|new; -hh adds view|index|watch)
-      render.py      parse/union + 4 view primitives (table / join / detail / matrix)
+      render.py      parse/union + 4 view primitives (table / join / entry / matrix)
       view.py        materialize the render to <dir>/<name>.view.md (live-preview artifact)
       lint.py        graph-internal gate
       drift.py       graph<->code drift gate (ripgrep, Rust + Python)

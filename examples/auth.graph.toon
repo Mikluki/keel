@@ -23,4 +23,4 @@ edges[4]{kind,from,to}:
 views[3]{kind,title,table,arg,extra}:
   table,Components,components,"id,layer,card",
   join,Enforced policies,components,enforces,card
-  detail,Component detail,components,,
+  entry,Component entry,components,,
