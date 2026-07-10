@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""pack: the 1-hop edit context for a single node - what an agent loads to edit it.
+"""context: the 1-hop edit context for a single node - what an agent loads to edit it.
 
 Emits the node's attributes + bodies/ prose + every edge touching it (in & out =
 the blast radius) + every invariant/decision that `touches` it + its code refs.
 ~20 lines instead of the whole spec - this is the loop's PICK step.
 
-    python pack.py <node-id> [slices...]
-    python pack.py <node> .toons/<slug> --toon      # structured body for an agent
-    python pack.py <node> .toons/<slug> --brief     # truncate the prose body (full by default)
+    python context.py <node-id> [slices...]
+    python context.py <node> .toons/<slug> --toon      # structured body for an agent
+    python context.py <node> .toons/<slug> --brief     # truncate the prose body (full by default)
 """
 import sys
 from pathlib import Path
@@ -20,9 +20,9 @@ BODY_LINES = 12          # prose body truncated past this under --brief; full by
 
 
 def main():
-    args = emit.parse(sys.argv[1:], allow_root=False, cmd='pack')
+    args = emit.parse(sys.argv[1:], allow_root=False, cmd='context')
     if not args.positional:
-        emit.die('USAGE', 'pack needs a node id: pack <node-id> [slices...]')
+        emit.die('USAGE', 'context needs a node id: context <node-id> [slices...]')
     nid, paths = args.positional[0], resolve_paths(args.positional[1:])
     slices, tables, prov = load_union(paths)
 

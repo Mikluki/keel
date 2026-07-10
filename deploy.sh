@@ -10,7 +10,7 @@
 # Dest (install):           ~/.claude/skills/keel/           (SKILL.md, references/, scripts/)
 #                           <oh-my-zsh custom>/completions/   (symlink to _keel, best-effort)
 #
-# Requires: rsync, python3. ripgrep (rg) is needed at RUNTIME for refs/check/status.
+# Requires: rsync, python3. ripgrep (rg) is needed at RUNTIME for drift/check/status.
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"   # this repo's root

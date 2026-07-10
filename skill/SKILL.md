@@ -1,6 +1,6 @@
 ---
 name: keel
-description: Use when iterating on a complex design captured as a keel graph (a TOON graph + bodies/), e.g. under .toons/**/*.graph.toon. Discussion is the default mode - brainstorm in conversation, edit the graph only once a decision is locked. Before editing a node, pack it for its 1-hop context; after any change, check it (graph lint + code-ref drift); diagnose drift/incompleteness with status; when asked "what next / what should I work on", answer with nextodo; "what covers what / where are the gaps" with matrix. Always edit the .toon graph, never the rendered output; write bodies/*.md prose only when the human explicitly asks.
+description: Use when iterating on a complex design captured as a keel graph (a TOON graph + bodies/), e.g. under .toons/**/*.graph.toon. Discussion is the default mode - brainstorm in conversation, edit the graph only once a decision is locked. Before editing a node, load its 1-hop context with context; after any change, check it (graph lint + code-ref drift); diagnose drift/incompleteness with status; when asked "what next / what should I work on", answer with todo; "what covers what / where are the gaps" with matrix. Always edit the .toon graph, never the rendered output; write bodies/*.md prose only when the human explicitly asks.
 allowed-tools: Bash(python3 ${CLAUDE_SKILL_DIR}/scripts/cli.py *), Bash(rg *)
 ---
 
@@ -39,7 +39,7 @@ truncation of long lists/bodies - output is FULL by default), and `-h` (its own 
 A design conversation has two modes, and the default is DISCUSSION. When the user proposes,
 questions, or riffs, they are brainstorming WITH you - think it through and answer in
 conversation. Do NOT edit the graph after every suggestion: a half-formed idea written as
-structure is churn you will only unwrite. Reading is always fair game (`pack`/`status`/
+structure is churn you will only unwrite. Reading is always fair game (`context`/`status`/
 `render`/`find`) - ground the discussion in what the graph already says.
 
 The graph is written only when a decision LOCKS:
@@ -77,20 +77,20 @@ starts collecting measured numbers in cards, name the pattern and ASK before int
 
 ## The loop
 The execution path for a LOCKED change:
-1. **PICK** - `keel pack <node> <slices...>` - load ONLY this. It lists the node's
+1. **PICK** - `keel context <node> <slices...>` - load ONLY this. It lists the node's
    attributes, its prose body, every edge touching it (the blast radius), the
-   invariants/decisions that constrain it, and its `ref -> code` targets. pack is a SCALE
+   invariants/decisions that constrain it, and its `ref -> code` targets. context is a SCALE
    tool: when the union is small (under ~40 nodes) just read the graph file - the point is
    loading one node's blast radius instead of the whole spec, however you get it.
-   pack reads the GRAPH only, never code - so it takes NO `--code-root` (that flag is for
-   the ref-resolving commands: `check` / `refs` / `status` / `new`).
+   context reads the GRAPH only, never code - so it takes NO `--code-root` (that flag is for
+   the ref-resolving commands: `check` / `drift` / `status` / `new`).
 2. **CLASSIFY** the change:
    - logic-only (a formula / impl detail) -> the graph is UNCHANGED (the ref still points)
    - structural (new node/edge, changed decision/invariant) -> edit the GRAPH FIRST
 3. **IMPLEMENT** the code, plus the asserts that pin any new/changed invariant.
 4. **RECONCILE** - point the node's `ref` edge at what you wrote: `ref,<node>,file.rs#symbol`.
-5. **CHECK** - `keel check <slices...> --code-root <code>` - lint (graph-internal) + refs
-   (graph<->code drift). Green, or fix and repeat.
+5. **CHECK** - `keel check <slices...> --code-root <code>` - lint (graph-internal) + drift
+   (graph<->code). Green, or fix and repeat.
 
 ## New ideas - explore, then keep or drop
 Adding an idea is not committing to it - but even capturing one waits for a lock ("let's
@@ -114,10 +114,10 @@ render into the spec.
 lifecycle lanes, then over canon: implemented vs planned vs DRIFTED nodes, rule failures,
 orphan nodes, and the unbuilt cross-slice seams (with who depends on each). Reach for this
 when something feels off or before a big edit - it diagnoses; for "what should I do", see
-nextodo below.
+todo below.
 
 ## What next - the derived worklist
-`keel nextodo <slices...> --code-root <code>` answers ONE question: what is worth doing
+`keel todo <slices...> --code-root <code>` answers ONE question: what is worth doing
 right now. Drifted refs to FIX first, then READY nodes (planned canon whose prerequisites
 are all implemented) ranked by leverage (frees = blocked nodes it is the last obstacle
 for) and grouped into lanes - nodes in DIFFERENT lanes share no edge or constraint, so
@@ -126,7 +126,7 @@ DECISION, then the BLOCKED list with each blocker named. Everything is derived f
 edges + ref resolution: no plan files, no status columns, nothing to author or sync.
 When the human asks "what next" / "where do I start", run THIS, not status - and pass
 `--brief` (top of the ready list + counts) to keep your context lean; the full list is
-the human's view. Scope it with `keel nextodo <goal-node> <slices...>`: the same ladder
+the human's view. Scope it with `keel todo <goal-node> <slices...>`: the same ladder
 restricted to the goal's unbuilt dependency cone - what stands between you and it.
 
 ## Coverage - the derived matrix

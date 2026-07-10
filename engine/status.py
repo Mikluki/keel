@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """status: a divergence dashboard for a spec-graph.
 
-Where lint/refs are pass/fail gates, status aggregates health into one diagnostic
+Where lint/drift are pass/fail gates, status aggregates health into one diagnostic
 view: implemented vs planned vs DRIFTED nodes (graph<->code), rule failures, orphan
 nodes, and the unbuilt cross-slice seams with who depends on each. Domain-agnostic -
 reads only nodes / edges / rules / ref edges.
@@ -13,7 +13,7 @@ import sys
 
 import containers
 import emit
-from refs import resolve
+from drift import resolve
 from render import (CARD_MAX, SYSTEM_TABLES, card_warnings, load_union,
                     resolve_paths, split, state_of)
 
@@ -167,10 +167,10 @@ def main():
             print("  0 - every referenced node is loaded")
 
     if drifted:                            # fix first: a lying graph poisons the worklist
-        emit.nxt(f"keel pack {drifted[0][0]} {names_for(args)} - reconcile the drifted ref",
+        emit.nxt(f"keel context {drifted[0][0]} {names_for(args)} - reconcile the drifted ref",
                  toon=args.toon)
     elif planned or explore:
-        emit.nxt(f"keel nextodo {names_for(args)} - the ranked worklist (ready lanes, "
+        emit.nxt(f"keel todo {names_for(args)} - the ranked worklist (ready lanes, "
                  f"decisions, blockers)", toon=args.toon)
     else:
         emit.nxt(f"keel render {names_for(args)} - all canon nodes implemented; refresh "

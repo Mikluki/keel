@@ -7,7 +7,7 @@ it, prints a live status line, and maintains .toons/_watch.status so anyone can 
 verdict cheaply. The agent is never interrupted - it pulls status on its own schedule.
 
 Watches ONLY .toons/ (graph-internal consistency + previews). At this scale a poll is ample, so
-there is no dependency and no daemon. Code<->graph drift (`refs`, a ripgrep scan of the code
+there is no dependency and no daemon. Code<->graph drift (`drift`, a ripgrep scan of the code
 root) stays a PULL gate you run at CHECK; watch never scans the code root.
 
     python watch.py                 # watch the .toons/ enclosing the cwd

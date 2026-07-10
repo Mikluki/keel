@@ -43,7 +43,7 @@ A design `.md` is fuel, not truth: burned once at init, then archived.
   structure*; the design.md never changes again.
 - **Invalidation by change KIND**: a logic/number change leaves the toon untouched
   (its `ref` still points); a structural change (new node/edge, changed decision or
-  invariant) invalidates it. `refs` is the staleness detector.
+  invariant) invalidates it. `drift` is the staleness detector.
 - **SSOT hands off once**: the toon is SSOT only in the window before code exists
   (unresolved `ref -> code` are listed, not failed); the moment code lands, code is
   SSOT permanently.
@@ -63,7 +63,7 @@ The add/explore/decide order:
     capture ─► explore ──┬─► keep ─► canon ─► [planned → implemented → drifted]
     (state:explore)      └─► drop ─► dropped   (+ write the why; the spike ref may dangle)
 
-`state` is real because it gates behavior, not just labels: `refs`/`check` fail only on
+`state` is real because it gates behavior, not just labels: `drift`/`check` fail only on
 `canon` drift (explore/dropped refs are muted - spike and delete freely); `status`/`index`
 bucket the three lanes and compute health over canon; `render` shows every node but groups
 the bodies appendix by state (`# Canon`/`# Explore`/`# Dropped`, rejected last); and `lint`
@@ -80,11 +80,11 @@ and 10 are argument-layer fixes in `cli.py`; 7 is the opt-in `watch` monitor.
 2. **Minimal default schemas** - 3-4 fields per list item, not 10+.  (ok; render `detail`=6 widest)
 3. **Content truncation** - truncate large text fields with size hints and escape hatches.
    - [x] `emit.clip`/`head`/`trunc_list` truncate bodies + long lists with a size hint and
-     a `--full` escape hatch (generalizes the old refs AMBIGUOUS count+head).
+     a `--full` escape hatch (generalizes drift's AMBIGUOUS count+head).
 4. **Pre-computed aggregates** - counts and statuses that eliminate round trips.  (ok in `status`)
-   - [x] `pack` header tallies edges/constraints/refs; counts lead every `--toon` body.
+   - [x] `context` header tallies edges/constraints/refs; counts lead every `--toon` body.
 5. **Definitive empty states** - explicit "0 results", never ambiguous empty output.
-   - [x] Every section prints an explicit "0 ..." state (`pack` sections, `status` SEAMS,
+   - [x] Every section prints an explicit "0 ..." state (`context` sections, `status` SEAMS,
      and `name[0]{...}` empty tables in `--toon`).
 6. **Structured errors & exit codes** - idempotent mutations, structured errors, no
    interactive prompts, fail loud on unknown flags.
@@ -99,7 +99,7 @@ and 10 are argument-layer fixes in `cli.py`; 7 is the opt-in `watch` monitor.
 9. **Contextual disclosure** - append relevant next-step commands after output, not all
    upfront.
    - [x] Every command ends with a `next:` line via `emit.nxt` (`status`->fix drift or the
-     nextodo worklist; `pack`->edit then check; failing `check`->the fix). Under `--toon` the
+     todo worklist; `context`->edit then check; failing `check`->the fix). Under `--toon` the
      hint goes to stderr, so the stdout payload stays pure (round-trips `parse_toon`).
 10. **Consistent help** - concise per-subcommand reference for when agents need it.
     - [x] `<cmd> -h/--help` prints that module's docstring (via `cli.py docstring`).
@@ -111,15 +111,15 @@ and 10 are argument-layer fixes in `cli.py`; 7 is the opt-in `watch` monitor.
     deploy.sh      install skill/ + engine/ -> ~/.claude/skills/keel/ (real copy; re-run = reinstall)
                    also symlinks completion/_keel onto $fpath (oh-my-zsh auto-detected)
     engine/        the agnostic tool (code only, no domain words)
-      cli.py         entry point (-h: render|lint|refs|status|nextodo|matrix|check|pack|find|new; -hh adds view|index|watch)
-      render.py      G2: parse/union + 4 view primitives (table / join / detail / matrix)
+      cli.py         entry point (-h: render|lint|drift|status|todo|matrix|check|context|find|new; -hh adds view|index|watch)
+      render.py      parse/union + 4 view primitives (table / join / detail / matrix)
       view.py        materialize the render to <dir>/<name>.view.md (live-preview artifact)
       lint.py        graph-internal gate
-      refs.py        graph<->code drift gate (ripgrep, Rust + Python)
+      drift.py       graph<->code drift gate (ripgrep, Rust + Python)
       status.py      divergence dashboard (exposes classify: impl/planned/drifted)
-      nextodo.py     ranked worklist derived from the graph (fix > ready lanes > decide > blocked)
+      todo.py        ranked worklist derived from the graph (fix > ready lanes > decide > blocked)
       matrix.py      derived coverage pivot: two edge kinds crossed through a table (gaps first-class)
-      pack.py        a node's 1-hop edit context
+      context.py     a node's 1-hop edit context
       index.py       derived repo-wide .toons/ roll-up + slug<->anchor invariant
       find.py        reverse lookup: a source path -> its anchoring container
       containers.py  shared .toons/ protocol core (slug math, discovery, reverse lookup)
@@ -128,7 +128,7 @@ and 10 are argument-layer fixes in `cli.py`; 7 is the opt-in `watch` monitor.
       watch.py       poll .toons/, refresh previews + lint on change (human live loop)
     examples/      demos that exercise the engine (smoke tests; plain dirs, NOT containers)
       auth.graph.toon    agnosticism: a non-RNG vocabulary
-      refs/              ref-resolve demo: refs.graph.toon + fixtures/{degraded.rs,sample.py}
+      refs/              ref-edge drift demo: refs.graph.toon + fixtures/{degraded.rs,sample.py}
     completion/    _keel - zsh tab-completion (subcommands + this repo's .toons/ slugs)
 
 # Run
@@ -136,12 +136,12 @@ Dev form (from this repo's root) is shown below; installed, swap `python engine/
 
     python engine/cli.py new    <src-anchor>                # scaffold a fresh container (cold start)
     python engine/cli.py find   <src-file>                  # source -> its container (front door)
-    python engine/cli.py pack   <node> <target dir>         # a node's 1-hop edit context (PICK)
-    python engine/cli.py check  <target dir> --root <code>  # lint + refs (the CHECK gate)
+    python engine/cli.py context <node> <target dir>        # a node's 1-hop edit context (PICK)
+    python engine/cli.py check  <target dir> --root <code>  # lint + drift (the CHECK gate)
     python engine/cli.py status <target dir> --root <code>  # divergence dashboard
-    python engine/cli.py nextodo [goal] <target dir> --root <code>  # ranked worklist: what next
+    python engine/cli.py todo   [goal] <target dir> --root <code>  # ranked worklist: what next
     python engine/cli.py matrix <target dir> [pivot "<a> x <b>"] --root <code>  # coverage pivot (no axes: candidates)
-    python engine/cli.py render <target dir>                # human view (G2)
+    python engine/cli.py render <target dir>                # human view
     python engine/cli.py watch  <target dir>                # live: poll .toons/, refresh + lint on change
     python engine/cli.py index                              # repo-wide .toons/ roll-up
 
@@ -197,7 +197,7 @@ Three commands operationalize it (all in `containers.py`):
             .toons/<slug>/ and defaults --root to the repo root (walk up to .toons/'s parent).
 
 Source-code edits are NOT watched (that would mean scanning the whole code root): graph<->code
-drift is a pull-time gate. Run `check`/`refs` at RECONCILE, and use `find <source-path>` to map
+drift is a pull-time gate. Run `check`/`drift` at RECONCILE, and use `find <source-path>` to map
 a file you are about to edit to its container.
 
 # Modeling rules

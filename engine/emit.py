@@ -76,7 +76,7 @@ def die(code, msg, *, exit_code=2) -> NoReturn:
 
     Exit-code taxonomy: 2 = usage error (bad flag/command/args); 3 = a valid call whose
     target or a required dependency is absent (node / .toons/ / ripgrep). Gate failures
-    (lint/refs drift) exit 1 from their own command; 0 is success.
+    (lint/drift) exit 1 from their own command; 0 is success.
     """
     print(f"error: {code}: {msg}", file=sys.stderr)
     sys.exit(exit_code)
@@ -114,7 +114,7 @@ def toon(scalars, tables):
 
 
 def head(items, n, noun, hint='--full'):
-    """Count + first-n of a list with an escape hatch (generalizes refs AMBIGUOUS).
+    """Count + first-n of a list with an escape hatch (generalizes drift's AMBIGUOUS).
 
     Use when the count is the headline (`2 defs: ...`); when the count is already in
     a surrounding header, prefer trunc_list to avoid printing it twice.

@@ -88,9 +88,9 @@ Constraint tables are just node tables by convention - nothing special to the en
 - `from`/`to` normally name a node `id`, but may also be a table NAME (a category). An
   endpoint that resolves to neither is SURFACED by lint as an "unresolved cross-slice ref" -
   listed, not a hard error (it may live in a slice you did not load together). A missing CODE
-  target on a `ref` edge is the separate, hard `refs`/`check` gate.
+  target on a `ref` edge is the separate, hard `drift`/`check` gate.
 - **`ref` edges are special**: `to` is a CODE coordinate, not a node id, and is checked by
-  `refs.py` (ripgrep), not node resolution. Three target forms:
+  `drift.py` (ripgrep), not node resolution. Three target forms:
   - `file.py#symbol` / `file.rs#Struct` - a symbol in a specific file. A symbol is any
     definition, module-level constants included: `file.py#BOOT_REPS` matches
     `BOOT_REPS = ...` / `BOOT_REPS: int = ...`, `file.rs#MAX_LAG` matches `const`/`static`.
@@ -136,7 +136,7 @@ Three view primitives (the only ones the renderer knows):
 - `*.graph.toon` - a slice's nodes + edges (+ invariants/decisions/rules).
 - `*.views.toon` - presentation only; renders against one or more graph slices (`views`/`rules`
   can live in either - they union across all loaded slices).
-- `bodies/<id>.md` - a node's prose drill-down, surfaced by `pack`, the `detail` view (clipped),
+- `bodies/<id>.md` - a node's prose drill-down, surfaced by `context`, the `detail` view (clipped),
   and the render's trailing appendix (full text, one `## <id>` per body, grouped under
   `# Canon`/`# Explore`/`# Dropped`).
 - `*.results.toon` - an OPT-IN measurement sidecar for an EMPIRICAL graph only (see SKILL.md

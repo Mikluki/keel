@@ -10,14 +10,14 @@ _keel() {
   local -a subcmds slugs
 
   subcmds=(
-    'render:human view (G2)'
+    'render:human view'
     'lint:graph-internal consistency gate'
-    'refs:graph<->code drift gate (ripgrep)'
+    'drift:graph<->code drift gate (ripgrep)'
     'status:divergence dashboard'
-    'nextodo:ranked worklist - what to do next'
+    'todo:ranked worklist - what to do next'
     'matrix:derived coverage pivot - what covers what, where are gaps'
-    'check:lint + refs, the loop CHECK step'
-    'pack:1-hop edit context for a node'
+    'check:lint + drift, the loop CHECK step'
+    'context:1-hop edit context for a node'
     'find:which .toons container anchors a file'
     'new:scaffold a fresh .toons/<slug> container'
     'view:materialize a live .view.md preview'
@@ -31,7 +31,7 @@ _keel() {
   fi
 
   case ${words[2]} in
-    render|lint|refs|status|nextodo|matrix|check|pack|view|watch)
+    render|lint|drift|status|todo|matrix|check|context|view|watch)
       slugs=(${(f)"$(keel --list-slugs 2>/dev/null)"})
       if (( ${#slugs} )); then
         _describe -t slugs 'toon slug' slugs

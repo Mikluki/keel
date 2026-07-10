@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate-2: a domain-AGNOSTIC renderer for any spec-graph.
+"""render: a domain-AGNOSTIC renderer for any spec-graph.
 
 The engine knows only: nodes (rows with an `id`), `edges`, `views`, `rules`.
 What node/edge KINDS exist and which VIEWS to draw are declared as data in the
@@ -94,7 +94,7 @@ SLICE_GLOBS = ('*.graph.toon', '*.views.toon', '*.results.toon')
 
 def dir_slices(d):
     """Every slice file in a directory: graph slices first, then views (a SYSTEM_TABLE,
-    so lint/refs/status/pack are unaffected; only render gains its views), then any OPT-IN
+    so lint/drift/status/context are unaffected; only render gains its views), then any OPT-IN
     `*.results.toon` measurement sidecar. Recognizing the results glob has no effect when the
     file is absent (the common case); when present it unions so its `touches`/`ref` back to
     graph nodes resolve, while its high-churn diffs stay isolated in their own file."""

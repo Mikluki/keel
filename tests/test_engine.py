@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 
 import emit
-from refs import resolve
+from drift import resolve
 from render import parse_toon
 
 ENGINE = Path(__file__).resolve().parent.parent / 'engine'
@@ -213,10 +213,10 @@ def test_brief_opts_into_truncation(tmp_path):
 
 
 # ============================================================================
-# nextodo: the derived worklist (ready/blocked/frees, lanes, goal cone)
+# todo: the derived worklist (ready/blocked/frees, lanes, goal cone)
 # ============================================================================
 
-NEXTODO_SLICE = '''slice: t
+TODO_SLICE = '''slice: t
 n[4]{id,state,card}:
   base,canon,"built foundation"
   mid,canon,"buildable now"
@@ -230,36 +230,36 @@ edges[3]{kind,from,to}:
 '''
 
 
-def _nextodo_dir(tmp_path, slice_text=NEXTODO_SLICE):
+def _todo_dir(tmp_path, slice_text=TODO_SLICE):
     (tmp_path / 'lib.py').write_text('def built(): pass\n')   # makes `base` implemented
     write_slice(tmp_path, slice_text)
     return tmp_path
 
 
-def test_nextodo_ready_blocked_and_top_pick(tmp_path):
-    d = _nextodo_dir(tmp_path)
-    r = run_cli('nextodo', d, '--code-root', d)
+def test_todo_ready_blocked_and_top_pick(tmp_path):
+    d = _todo_dir(tmp_path)
+    r = run_cli('todo', d, '--code-root', d)
     assert r.returncode == 0, r.stdout + r.stderr
     assert 'READY 1' in r.stdout and 'BLOCKED 1' in r.stdout
     assert '<- mid' in r.stdout                       # blocked `top`, with the why
     assert 'frees 1' in r.stdout                      # mid is top's last obstacle
-    assert 'next: keel pack mid' in r.stdout               # the ranked pick, not `base` (built)
+    assert 'next: keel context mid' in r.stdout               # the ranked pick, not `base` (built)
 
 
-def test_nextodo_fix_ranks_before_ready(tmp_path):
+def test_todo_fix_ranks_before_ready(tmp_path):
     # a drifted ref outranks buildable work: the graph is lying, reconcile first
-    d = _nextodo_dir(tmp_path, NEXTODO_SLICE
+    d = _todo_dir(tmp_path, TODO_SLICE
                      .replace('edges[3]', 'edges[4]')
                      .replace('  ref,base,lib.py\n', '  ref,base,lib.py\n  ref,top,gone.py\n'))
-    r = run_cli('nextodo', d, '--code-root', d)
+    r = run_cli('todo', d, '--code-root', d)
     assert r.returncode == 0, r.stdout + r.stderr
     assert 'FIX 1' in r.stdout
-    assert 'next: keel pack top' in r.stdout and 'reconcile' in r.stdout
+    assert 'next: keel context top' in r.stdout and 'reconcile' in r.stdout
 
 
-def test_nextodo_goal_scopes_to_cone(tmp_path):
-    d = _nextodo_dir(tmp_path)
-    r = run_cli('nextodo', 'top', d, '--code-root', d, '--toon')
+def test_todo_goal_scopes_to_cone(tmp_path):
+    d = _todo_dir(tmp_path)
+    r = run_cli('todo', 'top', d, '--code-root', d, '--toon')
     assert r.returncode == 0, r.stdout + r.stderr
     scalars, tables = parse_toon(r.stdout)
     assert scalars['goal'] == 'top'
@@ -268,8 +268,8 @@ def test_nextodo_goal_scopes_to_cone(tmp_path):
     assert [x['id'] for x in tables['blocked']] == ['top']
 
 
-def test_nextodo_goal_not_found(tmp_path):
-    r = run_cli('nextodo', 'nosuch', _nextodo_dir(tmp_path))
+def test_todo_goal_not_found(tmp_path):
+    r = run_cli('todo', 'nosuch', _todo_dir(tmp_path))
     assert r.returncode == 3
     assert 'NODE_NOT_FOUND' in r.stderr
 
@@ -289,11 +289,11 @@ rules[1]{kind,a,b}:
 '''
 
 
-def test_nextodo_lanes_from_coupling(tmp_path):
+def test_todo_lanes_from_coupling(tmp_path):
     # undirected `overlaps` is no prerequisite (all 4 stay ready) but it DOES couple
     # b1/b2 into one lane; the untouched a1/a2 each get their own parallel-safe lane
     write_slice(tmp_path, LANES_SLICE)
-    r = run_cli('nextodo', tmp_path, '--toon')
+    r = run_cli('todo', tmp_path, '--toon')
     assert r.returncode == 0, r.stdout + r.stderr
     scalars, tables = parse_toon(r.stdout)
     assert scalars['ready'] == '4' and scalars['lanes'] == '3'
@@ -302,19 +302,19 @@ def test_nextodo_lanes_from_coupling(tmp_path):
     assert len({lane['a1'], lane['a2'], lane['b1']}) == 3
 
 
-def test_nextodo_brief_clips_ready(tmp_path):
+def test_todo_brief_clips_ready(tmp_path):
     rows = '\n'.join(f'  n{i},"card"' for i in range(6))
     write_slice(tmp_path, f'slice: t\nn[6]{{id,card}}:\n{rows}\n')
-    full = run_cli('nextodo', tmp_path)
-    brief = run_cli('nextodo', tmp_path, '--brief')
+    full = run_cli('todo', tmp_path)
+    brief = run_cli('todo', tmp_path, '--brief')
     assert 'n5' in full.stdout and 'drop --brief' not in full.stdout
     assert 'n5' not in brief.stdout and 'drop --brief' in brief.stdout
 
 
-def test_nextodo_cycle_fails_loud(tmp_path):
+def test_todo_cycle_fails_loud(tmp_path):
     write_slice(tmp_path, 'slice: t\nn[2]{id,card}:\n  a,"x"\n  b,"y"\n\n'
                           'edges[2]{kind,from,to}:\n  needs,a,b\n  needs,b,a\n')
-    r = run_cli('nextodo', tmp_path)
+    r = run_cli('todo', tmp_path)
     assert r.returncode == 0
     assert 'READY 0' in r.stdout and 'cycle' in r.stdout
 

@@ -43,7 +43,7 @@ def main():
                           f"(want one of {'/'.join(STATES)})")
 
     for e in tables.get('edges', []):
-        if e['kind'] == 'ref':            # code refs are checked by refs.py, not node-resolution
+        if e['kind'] == 'ref':            # code refs are checked by drift.py, not node-resolution
             continue
         externals |= {x for x in (e['from'], e['to']) if x not in valid}
     for r in node_rows(tables):
@@ -123,7 +123,7 @@ def main():
         emit.nxt(f"fix the {len(errors)} error(s) above in the graph, then re-run keel check",
                  toon=args.toon)
         sys.exit(1)
-    emit.nxt(f"keel refs {slice_args} --code-root <code> - now check graph<->code drift",
+    emit.nxt(f"keel drift {slice_args} --code-root <code> - now check graph<->code drift",
              toon=args.toon)
 
 

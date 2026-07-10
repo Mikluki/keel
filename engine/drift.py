@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""ref-resolve: verify every `ref` edge (graph node -> code symbol) exists.
+"""drift: verify every `ref` edge (graph node -> code symbol) exists.
 
 The graph<->code drift guard for the dev loop. A `ref` edge's target is a code
 coordinate: `path/file.rs#symbol`, `path/file.py` (file only), or a bare `symbol`
@@ -10,8 +10,8 @@ graph diff, a rename fails the gate. Resolution uses ripgrep with Rust/Python
 definition patterns, so the agent never greps by hand and a renamed or missing
 symbol FAILS the gate instead of silently rotting the design.
 
-    python refs.py *.graph.toon --code-root ../my-crate
-    python refs.py .toons/<slug> --code-root ../my-crate --toon     # structured body for an agent
+    python drift.py *.graph.toon --code-root ../my-crate
+    python drift.py .toons/<slug> --code-root ../my-crate --toon     # structured body for an agent
 """
 import re
 import shutil
@@ -87,8 +87,8 @@ def evidence_str(status, ev, full):
 
 def main():
     if not shutil.which('rg'):
-        emit.die('NO_RIPGREP', 'ref-resolve needs ripgrep (rg) on PATH', exit_code=3)
-    args = emit.parse(sys.argv[1:], cmd='refs')
+        emit.die('NO_RIPGREP', 'drift needs ripgrep (rg) on PATH', exit_code=3)
+    args = emit.parse(sys.argv[1:], cmd='drift')
     paths = resolve_paths(args.positional)
     root = emit.default_root(args.root, paths)
     slices, tables, _ = load_union(paths)
@@ -116,7 +116,7 @@ def main():
              'failing': bad, 'muted': muted, 'root': root},
             {'refs': (['status', 'state', 'from', 'to', 'evidence'], rows)}))
     else:
-        print(f"ref-resolve [{names}]: {len(refs)} ref edges, {n_ok} resolved, "
+        print(f"drift [{names}]: {len(refs)} ref edges, {n_ok} resolved, "
               f"{bad} failing (canon), {muted} muted (explore/dropped), root={root}")
         if not refs:
             print("  0 ref edges - no graph node points at code yet")

@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """keel - one entry point for the spec-graph loop tools.
 
-    keel render  [slices...]                 human view (Generate-2)
+    keel render  [slices...]                 human view
     keel lint    [slices...]                 graph-internal consistency gate
-    keel refs    [slices...] --code-root R   graph<->code drift gate (ripgrep)
+    keel drift   [slices...] --code-root R   graph<->code drift gate (ripgrep)
     keel status  [slices...] --code-root R   divergence dashboard
-    keel nextodo [goal] [slices...] --code-root R   ranked worklist: what next (fix > ready lanes > decide)
+    keel todo    [goal] [slices...] --code-root R   ranked worklist: what next (fix > ready lanes > decide)
     keel matrix  [slices...] [pivot "<a> x <b>"] --code-root R   coverage pivot (no axes: rank candidates)
-    keel check   [slices...] --code-root R   lint + refs (the loop's CHECK step)
-    keel pack    <node> [slices...]          a node's 1-hop edit context (PICK step)
+    keel check   [slices...] --code-root R   lint + drift (the loop's CHECK step)
+    keel context <node> [slices...]          a node's 1-hop edit context (PICK step)
     keel find    <source-path>               which .toons/ container anchors a file
     keel new     <anchor> [--code-root R]    scaffold a fresh .toons/<slug>/ (cold start)
 
@@ -35,9 +35,9 @@ HERE = Path(__file__).resolve().parent
 # view / index / watch are HUMAN commands: each dispatches and has its own -h, but is kept OUT
 # of the agent-facing -h listing (shown only under -hh) to keep the agent's context lean - they
 # produce a preview / a roll-up / a live monitor, none part of the pull-based agent loop.
-SCRIPTS = {'render': 'render.py', 'view': 'view.py', 'lint': 'lint.py', 'refs': 'refs.py',
-           'status': 'status.py', 'nextodo': 'nextodo.py', 'matrix': 'matrix.py',
-           'pack': 'pack.py', 'index': 'index.py', 'find': 'find.py', 'new': 'new.py',
+SCRIPTS = {'render': 'render.py', 'view': 'view.py', 'lint': 'lint.py', 'drift': 'drift.py',
+           'status': 'status.py', 'todo': 'todo.py', 'matrix': 'matrix.py',
+           'context': 'context.py', 'index': 'index.py', 'find': 'find.py', 'new': 'new.py',
            'watch': 'watch.py'}
 
 HUMAN_HELP = """
@@ -96,10 +96,10 @@ def main():
 
     if cmd == 'check':
         if wants_help:
-            print("check: lint + refs - the loop's CHECK step (lint first, then refs).\n")
-            print(docstring('lint.py') + '\n\n' + docstring('refs.py'))
+            print("check: lint + drift - the loop's CHECK step (lint first, then drift).\n")
+            print(docstring('lint.py') + '\n\n' + docstring('drift.py'))
             return
-        sys.exit(max(run('lint.py', strip_root(rest)), run('refs.py', rest)))
+        sys.exit(max(run('lint.py', strip_root(rest)), run('drift.py', rest)))
     if cmd in SCRIPTS:
         if wants_help:
             print(docstring(SCRIPTS[cmd]))

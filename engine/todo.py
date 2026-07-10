@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""nextodo: the ranked worklist - what to do next, derived from the graph.
+"""todo: the ranked worklist - what to do next, derived from the graph.
 
-Where status DIAGNOSES divergence, nextodo answers one question: what is worth doing
+Where status DIAGNOSES divergence, todo answers one question: what is worth doing
 right now. Every lane is DERIVED from edges + ref resolution - no plan files, no
 status columns, nothing new to author or re-sync:
 
@@ -17,9 +17,9 @@ A prerequisite is a directed out-edge to another node (the same dependency seman
 the lint state-gate uses): `ref` edges and kinds declared `undirected` never order
 work; an edge to an UNLOADED node blocks (its state is unknown - load that slice).
 
-    python nextodo.py [slices...] --code-root R          the whole worklist
-    python nextodo.py <goal> [slices...] --code-root R   only what stands between you and <goal>
-    python nextodo.py ... --brief                        agent-lean: top ready + counts
+    python todo.py [slices...] --code-root R          the whole worklist
+    python todo.py <goal> [slices...] --code-root R   only what stands between you and <goal>
+    python todo.py ... --brief                        agent-lean: top ready + counts
 """
 import sys
 from pathlib import Path
@@ -34,7 +34,7 @@ BLOCKED_BRIEF = 5
 
 
 def main():
-    args = emit.parse(sys.argv[1:], cmd='nextodo')
+    args = emit.parse(sys.argv[1:], cmd='todo')
     goal, slice_args = None, []
     for a in args.positional:            # the one non-path positional is the goal node
         if Path(a).exists():
@@ -43,7 +43,7 @@ def main():
             goal = a
         else:
             emit.die('USAGE', f"two non-path args ({goal!r}, {a!r}) - "
-                     "nextodo takes at most one goal node")
+                     "todo takes at most one goal node")
     paths = resolve_paths(slice_args)
     slices, tables, _ = load_union(paths)
     root = emit.default_root(args.root, paths)
@@ -176,7 +176,7 @@ def main():
             'blocked': (['id', 'missing'],
                         [{'id': b, 'missing': ' '.join(missing[b])} for b in blocked])}))
     else:
-        print(f"nextodo [{names}]  root={root}")
+        print(f"todo [{names}]  root={root}")
         if goal is not None:
             print(f"goal {goal}: {gstate}")
         print(f"fix {len(fix)} | ready {len(ready)} in {n_lanes} lanes | "
@@ -222,14 +222,14 @@ def main():
             print("\nBLOCKED 0 - nothing waits on unbuilt work")
 
     if fix:
-        emit.nxt(f"keel pack {fix[0][0]} {slice_str} - reconcile the drifted ref, then "
-                 "re-run keel nextodo", toon=args.toon)
+        emit.nxt(f"keel context {fix[0][0]} {slice_str} - reconcile the drifted ref, then "
+                 "re-run keel todo", toon=args.toon)
     elif rank:
         gain = f" (frees {len(frees[rank[0]])})" if frees[rank[0]] else ''
-        emit.nxt(f"keel pack {rank[0]} {slice_str} - top of the worklist{gain}",
+        emit.nxt(f"keel context {rank[0]} {slice_str} - top of the worklist{gain}",
                  toon=args.toon)
     elif explore_s:
-        emit.nxt(f"keel pack {explore_s[0]} {slice_str} - decide: keep (state:canon) or "
+        emit.nxt(f"keel context {explore_s[0]} {slice_str} - decide: keep (state:canon) or "
                  "drop (state:dropped)", toon=args.toon)
     elif blocked:
         emit.nxt("every planned node waits on another - a dependency cycle or an unloaded "
