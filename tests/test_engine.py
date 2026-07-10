@@ -533,3 +533,55 @@ def test_resolve_rust_constant(tmp_path):
         'pub const BOOT_REPS: usize = 1000;\npub static BAND_Q: f64 = 0.95;\n')
     assert resolve('consts.rs#BOOT_REPS', tmp_path)[0] == 'OK'
     assert resolve('consts.rs#BAND_Q', tmp_path)[0] == 'OK'
+
+
+# ============================================================================
+# context: inline ref resolution (--code-root) + code->graph reverse lookup
+# ============================================================================
+
+CTX_SLICE = '''slice: t
+n[2]{id,state,card}:
+  boot,canon,"pre-registered bootstrap reps - deliberately not a CLI knob"
+  other,canon,"unrelated"
+
+edges[2]{kind,from,to}:
+  ref,boot,lib.py#BOOT_REPS
+  treats,other,boot
+'''
+
+
+def _ctx_dir(tmp_path):
+    (tmp_path / 'lib.py').write_text('BOOT_REPS = 1000  # replicates\n')
+    write_slice(tmp_path, CTX_SLICE)
+    return tmp_path
+
+
+def test_context_resolves_refs_inline_only_with_root(tmp_path):
+    d = _ctx_dir(tmp_path)
+    r = run_cli('context', 'boot', d)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert 'BOOT_REPS = 1000' not in r.stdout          # graph-only without the flag
+    r = run_cli('context', 'boot', d, '--code-root', d)
+    assert 'OK' in r.stdout and 'BOOT_REPS = 1000' in r.stdout
+
+
+def test_context_code_coordinate_reverse_lookup(tmp_path):
+    # exact target, /-suffix, and bare symbol all name the same coordinate
+    d = _ctx_dir(tmp_path)
+    for q in ('lib.py#BOOT_REPS', 'BOOT_REPS'):
+        r = run_cli('context', q, d)
+        assert r.returncode == 0, r.stdout + r.stderr
+        assert 'boot' in r.stdout and 'not a CLI knob' in r.stdout
+    r = run_cli('context', 'BOOT_REPS', d, '--code-root', d)
+    assert 'BOOT_REPS = 1000' in r.stdout              # rooted: the coordinate resolves too
+    r = run_cli('context', 'lib.py#GONE', d)           # neither node nor ref target
+    assert r.returncode == 3
+    assert 'neither a node id nor a ref target' in r.stderr
+
+
+def test_context_toon_gains_code_table(tmp_path):
+    d = _ctx_dir(tmp_path)
+    r = run_cli('context', 'boot', d, '--code-root', d, '--toon')
+    assert 'code[1]{status,target,evidence}' in r.stdout
+    r = run_cli('context', 'boot', d, '--toon')
+    assert 'code[' not in r.stdout                     # no root, no code table

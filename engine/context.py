@@ -1,12 +1,23 @@
 #!/usr/bin/env python3
-"""context: the 1-hop edit context for a single node - what an agent loads to edit it.
+"""context: the 1-hop context of a THING - a graph node, or a code coordinate.
 
-Emits the node's attributes + bodies/ prose + every edge touching it (in & out =
+<node>: the node's attributes + bodies/ prose + every edge touching it (in & out =
 the blast radius) + every invariant/decision that `touches` it + its code refs.
-~20 lines instead of the whole spec - this is the loop's PICK step.
+~20 lines instead of the whole spec - this is the loop's PICK step. With --code-root
+each ref edge also RESOLVES inline (status + file:line + the live matched line), so
+a ref'd constant shows its current value without the graph ever storing it.
+Resolution runs ONLY when --code-root is passed - no root inference here, a guessed
+root would decorate every ref with false MISSING noise.
+
+<code coordinate>: the REVERSE question - which graph nodes pin this code, with their
+cards. Ask before editing code the graph may have opinions about. A coordinate is an
+exact ref target (`py/pkg/rigor.py#BOOT_REPS`), a /-boundary suffix of one
+(`rigor.py#BOOT_REPS`), or a bare symbol (`BOOT_REPS`). Anything that is neither a
+node id nor a matching ref target dies loud naming both.
 
     python context.py <node-id> [slices...]
-    python context.py <node> .toons/<slug> --toon      # structured body for an agent
+    python context.py <node> .toons/<slug> --code-root ../crate   # refs resolve inline
+    python context.py src/auth.rs#AuthService .toons/<slug>       # code -> graph
     python context.py <node> .toons/<slug> --brief     # truncate the prose body (full by default)
 """
 import sys
@@ -14,15 +25,84 @@ from pathlib import Path
 
 import containers
 import emit
+from drift import evidence_str, resolve
 from render import SYSTEM_TABLES, load_union, resolve_paths, split, state_of
 
 BODY_LINES = 12          # prose body truncated past this under --brief; full by default
 
 
+def ref_matches(tables, query):
+    """The ref edges whose CODE target the query names: exact, a /-boundary suffix
+    (`rigor.py#X` hits `py/pkg/rigor.py#X`), or a bare symbol (`X` hits `...#X`)."""
+    hits = []
+    for e in tables.get('edges', []):
+        if e['kind'] != 'ref':
+            continue
+        t = e['to']
+        if (t == query or t.endswith('/' + query)
+                or ('/' not in query and '#' not in query
+                    and '#' in t and t.rsplit('#', 1)[1] == query)):
+            hits.append(e)
+    return hits
+
+
+def code_mode(args, query, tables, slices):
+    """code coordinate -> the graph nodes that pin it (+ resolution when rooted)."""
+    hits = ref_matches(tables, query)
+    if not hits:
+        emit.die('NOT_FOUND', f"'{query}' is neither a node id nor a ref target in the "
+                 "loaded union", exit_code=3)
+    node_of = {}
+    for tname, rows in tables.items():
+        if tname in SYSTEM_TABLES:
+            continue
+        for r in rows:
+            if 'id' in r:
+                node_of.setdefault(r['id'], (tname, r))
+    ref_rows = []
+    for e in hits:
+        tname, r = node_of.get(e['from'], ('?', {}))
+        ref_rows.append({'id': e['from'], 'table': tname,
+                         'state': state_of(r) if r else '?',
+                         'card': r.get('card', ''), 'target': e['to']})
+    targets = sorted({e['to'] for e in hits})
+    code_rows = []
+    if args.root is not None:
+        for t in targets:
+            status, ev = resolve(t, args.root)
+            code_rows.append({'status': status, 'target': t,
+                              'evidence': evidence_str(status, ev, args.full)})
+
+    names = ', '.join(n for n, _, _ in slices)
+    if args.toon:
+        tbls = {'nodes': (['id', 'table', 'state', 'card', 'target'], ref_rows)}
+        if args.root is not None:
+            tbls['code'] = (['status', 'target', 'evidence'], code_rows)
+        print(emit.toon({'query': query, 'slices': names, 'nodes': len(ref_rows),
+                         'targets': len(targets)}, tbls))
+    else:
+        print(f"# {query}   (code coordinate)   {len(ref_rows)} referring node(s), "
+              f"{len(targets)} target(s)")
+        for n in ref_rows:
+            print(f"  {n['id']}  ({n['table']}, {n['state']}): {n['card']}")
+            if n['target'] != query:
+                print(f"      ref: {n['target']}")
+        if code_rows:
+            print("\ncode:")
+            for c in code_rows:
+                tail = f"  [{c['evidence']}]" if c['evidence'] else ''
+                print(f"  {c['status']:12} {c['target']}{tail}")
+
+    slice_str = ' '.join(containers.display_arg(a) for a in args.positional[1:]) or '.'
+    emit.nxt(f"keel context {ref_rows[0]['id']} {slice_str} - the pinning node's full "
+             "1-hop context", toon=args.toon)
+
+
 def main():
-    args = emit.parse(sys.argv[1:], allow_root=False, cmd='context')
+    args = emit.parse(sys.argv[1:], cmd='context')
     if not args.positional:
-        emit.die('USAGE', 'context needs a node id: context <node-id> [slices...]')
+        emit.die('USAGE', 'context needs a node id or code coordinate: '
+                 'context <node|file#symbol> [slices...]')
     nid, paths = args.positional[0], resolve_paths(args.positional[1:])
     slices, tables, prov = load_union(paths)
 
@@ -34,7 +114,8 @@ def main():
             if r.get('id') == nid:
                 row, table = r, tname
     if row is None:
-        emit.die('NODE_NOT_FOUND', f"node '{nid}' not in any loaded slice", exit_code=3)
+        code_mode(args, nid, tables, slices)   # dies loud if it is no coordinate either
+        return
     st = state_of(row)
 
     attrs = [{'key': k, 'value': v} for k, v in row.items() if k != 'id']
@@ -43,6 +124,11 @@ def main():
              + [{'dir': 'in', 'kind': e['kind'], 'other': e['from']}
                 for e in tables.get('edges', []) if e['to'] == nid])
     n_refs = sum(1 for e in edges if e['kind'] == 'ref')
+
+    res = {}                     # explicit --code-root only (see module docstring)
+    if args.root is not None:
+        res = {e['other']: resolve(e['other'], args.root)
+               for e in edges if e['kind'] == 'ref' and e['dir'] == 'out'}
 
     constraints = []
     for tname, rows in tables.items():
@@ -59,13 +145,18 @@ def main():
 
     if args.toon:
         body_ptr = f"bodies/{nid}.md ({len(body.splitlines())} lines)" if body else '(none)'
+        tbls = {'attrs': (['key', 'value'], attrs),
+                'edges': (['dir', 'kind', 'other'], edges),
+                'constraints': (['id', 'table', 'statement'], constraints)}
+        if args.root is not None:
+            tbls['code'] = (['status', 'target', 'evidence'],
+                            [{'status': s, 'target': t,
+                              'evidence': evidence_str(s, ev, args.full)}
+                             for t, (s, ev) in res.items()])
         print(emit.toon(
             {'node': nid, 'table': table, 'slice': prov.get(nid), 'state': st,
              'edges': len(edges), 'refs': n_refs, 'constraints': len(constraints),
-             'body': body_ptr},
-            {'attrs': (['key', 'value'], attrs),
-             'edges': (['dir', 'kind', 'other'], edges),
-             'constraints': (['id', 'table', 'statement'], constraints)}))
+             'body': body_ptr}, tbls))
     else:
         print(f"# {nid}   ({table}, slice={prov.get(nid)}, state={st})   "
               f"{len(edges)} edges, {len(constraints)} constraints, {n_refs} refs")
@@ -75,7 +166,12 @@ def main():
         print(f"\nedges (blast radius): {len(edges)}")
         for e in edges:
             arrow = '->' if e['dir'] == 'out' else '<-'
-            print(f"  {arrow} [{e['kind']}] {e['other']}")
+            line = f"  {arrow} [{e['kind']}] {e['other']}"
+            if e['other'] in res:
+                s, ev = res[e['other']]
+                evs = evidence_str(s, ev, args.full)
+                line += f"   {s}" + (f" [{evs}]" if evs else '')
+            print(line)
         if not edges:
             print("  0 - nothing references this node and it references nothing")
 

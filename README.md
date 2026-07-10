@@ -119,7 +119,7 @@ and 10 are argument-layer fixes in `cli.py`; 7 is the opt-in `watch` monitor.
       status.py      divergence dashboard (exposes classify: impl/planned/drifted)
       todo.py        ranked worklist derived from the graph (fix > ready lanes > decide > blocked)
       matrix.py      derived coverage pivot: two edge kinds crossed through a table (gaps first-class)
-      context.py     a node's 1-hop edit context
+      context.py     1-hop context of a node (--code-root: refs resolve inline) or a code coordinate (who pins it)
       index.py       derived repo-wide .toons/ roll-up + slug<->anchor invariant
       find.py        reverse lookup: a source path -> its anchoring container
       containers.py  shared .toons/ protocol core (slug math, discovery, reverse lookup)
@@ -136,7 +136,7 @@ Dev form (from this repo's root) is shown below; installed, swap `python engine/
 
     python engine/cli.py new    <src-anchor>                # scaffold a fresh container (cold start)
     python engine/cli.py find   <src-file>                  # source -> its container (front door)
-    python engine/cli.py context <node> <target dir>        # a node's 1-hop edit context (PICK)
+    python engine/cli.py context <node|file#sym> <target dir>  # 1-hop edit context (PICK); file#sym: who pins it
     python engine/cli.py check  <target dir> --root <code>  # lint + drift (the CHECK gate)
     python engine/cli.py status <target dir> --root <code>  # divergence dashboard
     python engine/cli.py todo   [goal] <target dir> --root <code>  # ranked worklist: what next

@@ -82,8 +82,12 @@ The execution path for a LOCKED change:
    invariants/decisions that constrain it, and its `ref -> code` targets. context is a SCALE
    tool: when the union is small (under ~40 nodes) just read the graph file - the point is
    loading one node's blast radius instead of the whole spec, however you get it.
-   context reads the GRAPH only, never code - so it takes NO `--code-root` (that flag is for
-   the ref-resolving commands: `check` / `drift` / `status` / `new`).
+   Add `--code-root <code>` to also RESOLVE the node's refs inline (status + file:line +
+   the live matched line - a ref'd constant shows its current value); without the flag it
+   reads the graph only. context also answers the REVERSE question: `keel context
+   <file#symbol> <slices...>` lists the graph nodes whose refs pin that code, with their
+   cards - run it BEFORE editing code the graph may have opinions about (a bare symbol or
+   a path suffix like `rigor.py#BOOT_REPS` works too).
 2. **CLASSIFY** the change:
    - logic-only (a formula / impl detail) -> the graph is UNCHANGED (the ref still points)
    - structural (new node/edge, changed decision/invariant) -> edit the GRAPH FIRST

@@ -100,6 +100,7 @@ Constraint tables are just node tables by convention - nothing special to the en
   So a CHOSEN number (threshold, window, pre-registered constant) never appears in the
   graph: the card states the decision, the `ref` names the constant, the value lives in
   code. The value can churn with zero graph diff; a rename fails `check`.
+  `keel context <file#CONST>` answers the reverse - which nodes pin that code.
 
 ## `views` - presentation (reserved table; usually in a `*.views.toon`)
 
