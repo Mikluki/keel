@@ -6,8 +6,9 @@ the blast radius) + every invariant/decision that `touches` it + its code refs.
 ~20 lines instead of the whole spec - this is the loop's PICK step. With --code-root
 each ref edge also RESOLVES inline (status + file:line + the live matched line), so
 a ref'd constant shows its current value without the graph ever storing it.
-Resolution runs ONLY when --code-root is passed - no root inference here, a guessed
-root would decorate every ref with false MISSING noise.
+Resolution runs ONLY with a --code-root - typed, or supplied by the .toons slug
+contract (a bare <slug> arg injects the repo root). Never inferred from a plain path:
+a guessed root would decorate every ref with false MISSING noise.
 
 <code coordinate>: the REVERSE question - which graph nodes pin this code, with their
 cards. Ask before editing code the graph may have opinions about. A coordinate is an
@@ -92,7 +93,7 @@ def code_mode(args, query, tables, slices):
               f"{len(targets)} target(s)")
         for n in ref_rows:
             print(f"  {n['id']}  ({n['table']}, {n['state']}): {n['card']}")
-            if n['target'] != query:
+            if n['target'] != query and not code_rows:   # the code block shows it otherwise
                 print(f"      ref: {n['target']}")
         if code_rows:
             print("\ncode:")
@@ -103,7 +104,7 @@ def code_mode(args, query, tables, slices):
 
     slice_str = ' '.join(containers.display_arg(a) for a in args.positional[1:]) or '.'
     emit.nxt(f"keel context {ref_rows[0]['id']} {slice_str} - the pinning node's full "
-             "1-hop context", toon=args.toon)
+             "1-hop context", toon=args.toon, guide=True)
 
 
 def main():
@@ -200,13 +201,13 @@ def main():
     if st == 'explore':
         emit.nxt(f"decide: keep it (set state:canon + point its ref at code) or drop it "
                  f"(state:dropped + write the why); then keel check {slice_args} "
-                 "--code-root <code>", toon=args.toon)
+                 "--code-root <code>", toon=args.toon, guide=True)
     elif st == 'dropped':
         emit.nxt("dropped (a rejected record) - revive with state:explore, else leave it as "
-                 "institutional memory", toon=args.toon)
+                 "institutional memory", toon=args.toon, guide=True)
     else:
         emit.nxt(f"edit the graph, then: keel check {slice_args} --code-root <code>",
-                 toon=args.toon)
+                 toon=args.toon, guide=True)
 
 
 if __name__ == '__main__':

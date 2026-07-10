@@ -99,8 +99,11 @@ and 10 are argument-layer fixes in `cli.py`; 7 is the opt-in `watch` monitor.
 9. **Contextual disclosure** - append relevant next-step commands after output, not all
    upfront.
    - [x] Every command ends with a `next:` line via `emit.nxt` (`status`->fix drift or the
-     todo worklist; `context`->edit then check; failing `check`->the fix). Under `--toon` the
-     hint goes to stderr, so the stdout payload stays pure (round-trips `parse_toon`).
+     todo worklist; `context`->edit then check; failing `check`->the fix). Hints split by
+     audience: humans get the full ladder (remediation + tour-guide); agents (`--toon`) get
+     remediation only (drift/failures/misses, on stderr so the payload round-trips
+     `parse_toon`) - a routine hint repeated to an agent is duplicate tokens plus an
+     obedience nudge, and its success payloads end clean.
 10. **Consistent help** - concise per-subcommand reference for when agents need it.
     - [x] `<cmd> -h/--help` prints that module's docstring (via `cli.py docstring`).
 

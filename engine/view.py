@@ -58,7 +58,8 @@ def main():
     if res.returncode == 0:
         out_path.write_text(strip_next_hint(res.stdout))
         print(out_path)                 # payload: the file we produced
-        emit.nxt(f"open {out_path} in your editor - it refreshes on every graph edit")
+        emit.nxt(f"open {out_path} in your editor - it refreshes on every graph edit",
+                 guide=True)
         return 0
     out_path.write_text(banner(target, res.stderr or res.stdout))
     emit.die('RENDER_FAILED', f"render failed; wrote an error banner to {out_path}",

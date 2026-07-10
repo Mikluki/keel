@@ -35,6 +35,13 @@ do not ask where to put it.
 dir. Every command also takes `--toon` (structured output), `--brief` (size-hinted
 truncation of long lists/bodies - output is FULL by default), and `-h` (its own reference).
 
+`--toon` is YOUR contract - pass it. Same data, same ordering, same exit codes as the human
+view, but shaped for a context window: counts first, TOON tables, prose bodies as pointers
+(`bodies/<id>.md (N lines)` - Read the file only if you decide to). `next:` hints are
+remediation-only for you (drift, gate failures, misses - on stderr); the human view's
+routine tour-guide hints are suppressed because you already hold the loop in this skill -
+a clean payload end means nothing needs fixing, not that guidance is missing.
+
 ## Discuss first, write on lock
 A design conversation has two modes, and the default is DISCUSSION. When the user proposes,
 questions, or riffs, they are brainstorming WITH you - think it through and answer in

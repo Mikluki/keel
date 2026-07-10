@@ -48,7 +48,7 @@ def main():
 
     if container:
         emit.nxt(f"keel check {container.name}   # open this container's loop (PICK/CHECK)",
-                 toon=args.toon)
+                 toon=args.toon, guide=True)
     else:
         top = cands[0] if cands else 'the-concept'
         emit.nxt(f"bootstrap: mkdir .toons/{top}/ and seed <name>.graph.toon "

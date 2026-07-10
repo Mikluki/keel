@@ -114,10 +114,10 @@ def discover(tables, names, slice_str, args):
                    + (f"group: {c['group']}" if c['group'] else '')).rstrip())
     if cands:
         emit.nxt(f"keel matrix {slice_str} {cands[0]['pivot']} \"{cands[0]['axes']}\" - "
-                 "render the densest projection", toon=args.toon)
+                 "render the densest projection", toon=args.toon, guide=True)
     else:
         emit.nxt(f"keel render {slice_str} - nothing to cross; declared views still render",
-                 toon=args.toon)
+                 toon=args.toon, guide=True)
 
 
 def grid(m):
@@ -225,11 +225,11 @@ def main():
     if gcands:                             # a flat grid with a partition in reach: regroup first
         emit.nxt(f"keel matrix {slice_str} {pivot} \"{m['row_kind']} x {m['col_kind']}\" "
                  f"{gcands[0]['kind']} - regroup the rows "
-                 f"({gcands[0]['groups']} groups)", toon=args.toon)
+                 f"({gcands[0]['groups']} groups)", toon=args.toon, guide=True)
     else:
         emit.nxt(f"lock it when it earns its keep - add a views row: matrix,<Title>,{pivot},"
                  f"\"{m['row_kind']} x {m['col_kind']}\"" + (f",{gk}" if gk else ',')
-                 + " - render then regenerates it with the graph", toon=args.toon)
+                 + " - render then regenerates it with the graph", toon=args.toon, guide=True)
 
 
 if __name__ == '__main__':

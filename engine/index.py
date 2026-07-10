@@ -101,7 +101,7 @@ def main():
                  toon=args.toon)
         sys.exit(1)
     emit.nxt("keel check <slug> to open a container's loop, or keel find <path> to "
-             "reverse-look-up a source file", toon=args.toon)
+             "reverse-look-up a source file", toon=args.toon, guide=True)
 
 
 def _locate_toons(positional):

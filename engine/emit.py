@@ -140,14 +140,20 @@ def clip(text, n, hint):
     return '\n'.join(lines[:n]) + f"\n... (+{len(lines) - n} lines; {hint})"
 
 
-def nxt(line, *, toon=False):
-    """Append the relevant next-step command (P9).
+def nxt(line, *, toon=False, guide=False):
+    """Append the relevant next-step command (P9 - for humans; failure-only for agents).
 
-    Under --toon the stdout payload must stay pure (it round-trips parse_toon), so the
-    hint is a DIAGNOSTIC -> stderr. In human mode it is part of the readable view ->
-    stdout, blank-line separated.
+    Two species of hint: REMEDIATION (the output is a problem, the hint names the exit -
+    drift, gate failures, misses) and tour GUIDE (guide=True: routine loop chaining -
+    "now run drift", "context the top pick"). Agents (--toon) have the loop in their
+    skill context and obediently follow imperative trailing lines, so guide hints are
+    suppressed for them: an agent's success payload ends clean, only remediation earns
+    a hint. Under --toon the stdout payload must stay pure (it round-trips parse_toon),
+    so a surviving hint is a DIAGNOSTIC -> stderr. In human mode every hint is part of
+    the readable view -> stdout, blank-line separated.
     """
     if toon:
-        print(f"next: {line}", file=sys.stderr)
+        if not guide:
+            print(f"next: {line}", file=sys.stderr)
     else:
         print(f"\nnext: {line}")

@@ -171,10 +171,10 @@ def main():
                  toon=args.toon)
     elif planned or explore:
         emit.nxt(f"keel todo {names_for(args)} - the ranked worklist (ready lanes, "
-                 f"decisions, blockers)", toon=args.toon)
+                 f"decisions, blockers)", toon=args.toon, guide=True)
     else:
         emit.nxt(f"keel render {names_for(args)} - all canon nodes implemented; refresh "
-                 "the view", toon=args.toon)
+                 "the view", toon=args.toon, guide=True)
 
 
 def names_for(args):

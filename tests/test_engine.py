@@ -590,6 +590,19 @@ def test_context_toon_gains_code_table(tmp_path):
     assert 'code[' not in r.stdout                     # no root, no code table
 
 
+def test_hint_split_guide_human_only_remediation_both(tmp_path):
+    # tour-guide hint (lint green -> "now check drift"): human sees it, agent does not
+    write_slice(tmp_path, 'slice: t\nn[1]{id,card}:\n  a,"x"\n')
+    human, agent = run_cli('lint', tmp_path), run_cli('lint', tmp_path, '--toon')
+    assert 'next:' in human.stdout
+    assert 'next:' not in agent.stdout + agent.stderr   # clean payload end = nothing to fix
+    # remediation hint (gate failure): both audiences; agent's on stderr, payload pure
+    write_slice(tmp_path, GATE_SLICE)                   # canon depends on dropped -> error
+    human, agent = run_cli('lint', tmp_path), run_cli('lint', tmp_path, '--toon')
+    assert 'next:' in human.stdout
+    assert 'next:' in agent.stderr and 'next:' not in agent.stdout
+
+
 def test_jump_of_assembles_root_relative_location(tmp_path):
     (tmp_path / 'lib.py').write_text('BOOT_REPS = 1000\n')
     # file-scoped target: rg gives `line:content`, the target supplies the file

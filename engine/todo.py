@@ -227,16 +227,16 @@ def main():
     elif rank:
         gain = f" (frees {len(frees[rank[0]])})" if frees[rank[0]] else ''
         emit.nxt(f"keel context {rank[0]} {slice_str} - top of the worklist{gain}",
-                 toon=args.toon)
+                 toon=args.toon, guide=True)
     elif explore_s:
         emit.nxt(f"keel context {explore_s[0]} {slice_str} - decide: keep (state:canon) or "
-                 "drop (state:dropped)", toon=args.toon)
+                 "drop (state:dropped)", toon=args.toon, guide=True)
     elif blocked:
         emit.nxt("every planned node waits on another - a dependency cycle or an unloaded "
                  "slice; inspect BLOCKED", toon=args.toon)
     else:
         emit.nxt(f"keel render {slice_str} - nothing to do; all canon implemented",
-                 toon=args.toon)
+                 toon=args.toon, guide=True)
 
 
 if __name__ == '__main__':

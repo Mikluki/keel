@@ -160,7 +160,7 @@ def main():
                  toon=args.toon)
         sys.exit(1)
     emit.nxt(f"keel status {slice_args} --code-root <code> for the divergence dashboard",
-             toon=args.toon)
+             toon=args.toon, guide=True)
 
 
 if __name__ == '__main__':

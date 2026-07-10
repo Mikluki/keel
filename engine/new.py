@@ -70,7 +70,7 @@ def main():
         print(f"  {slice_file}")
         print(f"  {container}/bodies/   (drop <id>.md prose here)")
     emit.nxt(f"fill in {slice_file.name} (grammar: references/schema.md), "
-             f"then keel check {container} --code-root {root}", toon=args.toon)
+             f"then keel check {container} --code-root {root}", toon=args.toon, guide=True)
 
 
 if __name__ == '__main__':
