@@ -129,9 +129,11 @@ and 10 are argument-layer fixes in `cli.py`; 7 is the opt-in `watch` monitor.
       emit.py        shared agent-output layer (--toon / truncation / counts / errors / next)
       new.py         scaffold a fresh .toons/<slug>/ container (cold start)
       watch.py       poll .toons/, refresh previews + lint on change (human live loop)
-    examples/      demos that exercise the engine (smoke tests; plain dirs, NOT containers)
-      auth.graph.toon    agnosticism: a non-RNG vocabulary
-      refs/              ref-edge drift demo: refs.graph.toon + fixtures/{degraded.rs,sample.py}
+    examples/      a self-contained .toons/ repo (root == examples/) that exercises the FULL
+                   engine - the container protocol too, so watch/index/find/<slug> all fire
+      .toons/src-auth/auth.graph.toon       agnosticism: a non-RNG vocabulary, all planned (no code)
+      .toons/refs-fixtures/refs.graph.toon  ref-edge drift demo, anchored at refs/fixtures/
+      refs/fixtures/{sample.py,degraded.rs} the code those ref edges resolve against
     completion/    _keel - zsh tab-completion (subcommands + this repo's .toons/ slugs)
 
 # Run
@@ -213,7 +215,7 @@ a file you are about to edit to its container.
     canonical  = intent + structure + decisions + invariants; logic/numbers are refs->code
 
 # Proof it is algorithm-agnostic
-`examples/auth.graph.toon` models a web-auth spec (components / policies / an invariant) with
+`examples/.toons/src-auth/auth.graph.toon` models a web-auth spec (components / policies / an invariant) with
 node and edge kinds the engine has never heard of, yet it renders and lints through the exact
 same engine - zero engine changes. A spec may be partial: unresolved cross-slice refs are
 listed, not failed - a property of the content, not the tool.
