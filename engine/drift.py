@@ -11,7 +11,7 @@ definition patterns, so the agent never greps by hand and a renamed or missing
 symbol FAILS the gate instead of silently rotting the design.
 
     python drift.py *.graph.toon --code-root ../my-crate
-    python drift.py .toons/<slug> --code-root ../my-crate --toon     # structured body for an agent
+    python drift.py toons/<slug> --code-root ../my-crate --toon     # structured body for an agent
 """
 import re
 import shutil

@@ -16,7 +16,7 @@ rejected graveyard sits last where it is easy to skip. See render.state_of.
 
     python render.py                                      # all *.graph.toon in cwd
     python render.py a.graph.toon b.graph.toon a.views.toon   # union several slices
-    python render.py .toons/<slug>                        # a graph dir's slices
+    python render.py toons/<slug>                        # a graph dir's slices
 """
 import csv
 import re

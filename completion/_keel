@@ -1,9 +1,9 @@
 #compdef keel
 # ABOUTME: zsh completion for keel - completes subcommand names, and for the commands
-# that take a slice/slug arg, the current repo's .toons/<slug> names (via the hidden
+# that take a slice/slug arg, the current repo's toons/<slug> names (via the hidden
 # `keel --list-slugs` helper in cli.py). Slugs are the ONLY candidates when any exist -
 # mixing them with generic file/dir completion just buries them alphabetically among
-# every sibling directory in the repo. Plain-dir repos (no .toons/, e.g. examples/) fall
+# every sibling directory in the repo. Plain-dir repos (no toons/, e.g. examples/) fall
 # back to normal path completion since there are no slugs to offer.
 
 _keel() {
@@ -18,10 +18,11 @@ _keel() {
     'matrix:derived coverage pivot - what covers what, where are gaps'
     'check:lint + drift, the loop CHECK step'
     'context:1-hop edit context for a node'
-    'find:which .toons container anchors a file'
-    'new:scaffold a fresh .toons/<slug> container'
+    'find:which toons container anchors a file'
+    'new:scaffold a fresh toons/<slug> container'
+    'init:stand up the sibling <repo>-keel worktree (split-repo)'
     'view:materialize a live .view.md preview'
-    'watch:poll .toons, refresh previews + lint on change'
+    'watch:poll toons, refresh previews + lint on change'
     'index:derived repo-wide roll-up + slug invariant'
   )
 
@@ -44,7 +45,7 @@ _keel() {
     find)
       _files
       ;;
-    new)
+    new|init)
       _files -/
       ;;
     *)

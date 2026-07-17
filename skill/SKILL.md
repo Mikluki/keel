@@ -1,6 +1,6 @@
 ---
 name: keel
-description: Use when iterating on a complex design captured as a keel graph (a TOON graph + bodies/), e.g. under .toons/**/*.graph.toon. Discussion is the default mode - brainstorm in conversation, edit the graph only once a decision is locked. Before editing a node, load its 1-hop context with context; after any change, check it (graph lint + code-ref drift); diagnose drift/incompleteness with status; when asked "what next / what should I work on", answer with todo; "what covers what / where are the gaps" with matrix. Always edit the .toon graph, never the rendered output; write bodies/*.md prose only when the human explicitly asks.
+description: Use when iterating on a complex design captured as a keel graph (a TOON graph + bodies/), e.g. under toons/**/*.graph.toon. Discussion is the default mode - brainstorm in conversation, edit the graph only once a decision is locked. Before editing a node, load its 1-hop context with context; after any change, check it (graph lint + code-ref drift); diagnose drift/incompleteness with status; when asked "what next / what should I work on", answer with todo; "what covers what / where are the gaps" with matrix. Always edit the .toon graph, never the rendered output; write bodies/*.md prose only when the human explicitly asks.
 allowed-tools: Bash(python3 ${CLAUDE_SKILL_DIR}/scripts/cli.py *), Bash(rg *)
 ---
 
@@ -26,13 +26,16 @@ PATH shim is installed, a human convenience the skill does not rely on.)
 The full grammar and a complete slice to copy live in `${CLAUDE_SKILL_DIR}/references/schema.md` -
 read it BEFORE authoring or editing a slice; never reverse-engineer the format from the engine.
 
-The container is `.toons/<slug>/` at the root of the crate/package it describes - that
-root is `--code-root`, and `find` / `status` / `watch` all derive it by walking up to the
-nearest `.toons/`. It is TRACKED: committed and versioned with the code, because it is the
-source of truth you both re-render from and drift-check against. Never a scratchpad or an
-untracked dir - that breaks `find`, `--code-root` defaulting, and `watch`, and a design
-that cannot travel with its code cannot gate drift. Placement is determined, not a choice -
-do not ask where to put it.
+The graph lives in its OWN sibling worktree `<repo>-keel/`, on an orphan branch `keel` that
+`keel init` sets up - deliberately NOT inside the code tree. A worker grepping the code repo
+must never trip over `toons/`, read it as out-of-sync with the code, and "helpfully" reconcile
+it: graph<->code divergence is a first-class keel STATE, not a bug. So the isolation is
+structural - the code tree has no graph on disk at all. You run keel from that worktree; the
+container is `toons/<slug>/` inside it, found by walking up to the nearest `toons/`, and
+`--code-root` binds back to the main code tree automatically (so you never pass it for a slug).
+It is still TRACKED - committed on the `keel` branch, versioned and travelling with the repo as
+a ref, the source of truth you re-render from and drift-check against, never a scratchpad.
+Placement is determined: `keel init` puts it at the sibling, do not ask where.
 
 `--code-root` is the CODE root (your crate/package) for ref resolution, separate from the graph
 dir. Every command also takes `--toon` (structured output), `--brief` (size-hinted
@@ -75,7 +78,7 @@ Most graphs have NO measured results - keep numbers out of the model entirely. B
 EMPIRICAL design (experiments, benchmarks - findings that change every run and that
 decisions/bodies cite by number) needs a home for them, and it is NOT the card: a card is
 intent, and nothing drift-checks a number pasted into one, so it rots green while `check`
-stays happy (`check`/`status` now WARN when a card outgrows a one-liner). That home is a
+stays happy (`check`/`status` now WARN when any prose cell outgrows a one-liner). That home is a
 sibling `<slug>.results.toon` - its own file, so its churny diffs never touch the low-diff
 graph, yet it unions like any slice so relations resolve. Shape: a
 `result{id,touches,run,finding,data}` table keyed by the node it measures, with a `ref` to
@@ -192,11 +195,11 @@ its `=` means ref'd; this command and `check` do the drift-checking).
   weight you re-sync forever.
 
 The graph is the source. Starting from nothing? `keel find <path>` is the front door -
-it reports which `.toons/` container (if any) already anchors that path, or a MISS. On a
-MISS, `keel new <code-anchor>` scaffolds `.toons/<slug>/` with a skeleton slice - it
-auto-detects and reuses an existing enclosing `.toons/` (placing a sibling slice) or creates
+it reports which `toons/` container (if any) already anchors that path, or a MISS. On a
+MISS, `keel new <code-anchor>` scaffolds `toons/<slug>/` with a skeleton slice - it
+auto-detects and reuses an existing enclosing `toons/` (placing a sibling slice) or creates
 a fresh one at the code root, so calling `new` directly is usually enough without a prior
-`find`. Do NOT hand-roll this discovery with raw shell (`find .toons -type f`, `head` on a
+`find`. Do NOT hand-roll this discovery with raw shell (`find toons -type f`, `head` on a
 neighboring slice, `git log`/`git status`) - that duplicates what `find`/`new` already do,
 and a sibling slice's content tells you nothing about where the new one goes. Then fill in
 the nodes and edges (grammar: `references/schema.md`, above).

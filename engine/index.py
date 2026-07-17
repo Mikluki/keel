@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
-"""index: derive the repo-wide .toons/ roll-up and enforce the slug<->anchor invariant.
+"""index: derive the repo-wide toons/ roll-up and enforce the slug<->anchor invariant.
 
-Walks <repo>/.toons/<slug>/, reads each container's primary anchor and node health
+Walks <repo>/toons/<slug>/, reads each container's primary anchor and node health
 (planned / implemented / drifted vs the code), and writes the DERIVED _index.toon board -
 a repo-wide health view that cannot drift because nothing hand-writes it. In the same pass
 it checks the naming invariant `slug == flatten(refs.logic)` with collision handling: a dir
 named differently from its anchor, or two anchors that flatten to the same undisambiguable
 slug (dec 1), fail the gate (exit 1).
 
-Reads/writes: reads every .toons/<slug>/*.graph.toon (+ resolves their `ref` edges against
---code-root via ripgrep); writes <repo>/.toons/_index.toon unless --check.
+Reads/writes: reads every toons/<slug>/*.graph.toon (+ resolves their `ref` edges against
+--code-root via ripgrep); writes <repo>/toons/_index.toon unless --check.
 
-    python index.py                     # discover .toons/ from cwd, refresh _index.toon
-    python index.py .toons              # point at a .toons dir (or its repo root) explicitly
+    python index.py                     # discover toons/ from cwd, refresh _index.toon
+    python index.py toons              # point at a toons dir (or its repo root) explicitly
     python index.py --toon              # structured body for an agent
     python index.py --check             # validate the invariant only; write nothing
 """
@@ -32,7 +32,7 @@ def main():
 
     toons = _locate_toons(args.positional)
     if toons is None:
-        emit.die('NO_TOONS', 'no .toons/ dir found (run inside a repo that has one, or pass its path)',
+        emit.die('NO_TOONS', 'no toons/ dir found (run inside a repo that has one, or pass its path)',
                  exit_code=3)
     repo_root = args.root or toons.parent
 
@@ -86,7 +86,7 @@ def main():
             print(f"  {r['slug']:26} {r['impl']:>3}i {r['planned']:>3}p {r['drifted']:>3}d "
                   f"{r['explore']:>3}e {r['dropped']:>3}x   {r['anchor']}")
         if not dirs:
-            print("  0 containers - no .toons/<slug>/ yet")
+            print("  0 containers - no toons/<slug>/ yet")
 
     index_path = Path(toons) / containers.INDEX_FILE
     if write:
@@ -105,7 +105,7 @@ def main():
 
 
 def _locate_toons(positional):
-    """The .toons dir from an optional positional (a .toons dir OR its repo root), else discovered."""
+    """The toons dir from an optional positional (a toons dir OR its repo root), else discovered."""
     if not positional:
         return containers.find_toons_root()
     p = Path(positional[0])

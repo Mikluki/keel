@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""find: the front door - which .toons/ container anchors a source file you're about to edit.
+"""find: the front door - which toons/ container anchors a source file you're about to edit.
 
 Given a path you are about to touch, flatten it and walk up its parent dirs to the first
 anchoring container, then print that container so you can enter its loop. A MISS is not an
-error - it is the bootstrap signal: no toon covers this code yet, so `mkdir .toons/<slug>/`
+error - it is the bootstrap signal: no toon covers this code yet, so `mkdir toons/<slug>/`
 and seed a slice. The reverse of the naming rule that index.py enforces.
 
-    python find.py scripts/viz/lenses.py         # -> .toons/scripts-viz-lenses (+ next: check)
+    python find.py scripts/viz/lenses.py         # -> toons/scripts-viz-lenses (+ next: check)
     python find.py src/parser/lexer.rs --toon     # structured body for an agent
 """
 import sys
@@ -25,7 +25,7 @@ def main():
     src = Path(source)
     toons = containers.find_toons_root(src.parent if src.is_absolute() else None)
     if toons is None:
-        emit.die('NO_TOONS', 'no .toons/ dir found by walking up from the source path', exit_code=3)
+        emit.die('NO_TOONS', 'no toons/ dir found by walking up from the source path', exit_code=3)
     repo_root = toons.parent
 
     container = containers.container_for_source(source, toons)
@@ -51,7 +51,7 @@ def main():
                  toon=args.toon, guide=True)
     else:
         top = cands[0] if cands else 'the-concept'
-        emit.nxt(f"bootstrap: mkdir .toons/{top}/ and seed <name>.graph.toon "
+        emit.nxt(f"bootstrap: mkdir toons/{top}/ and seed <name>.graph.toon "
                  f"with refs: {{logic: {rel}}}", toon=args.toon)
 
 

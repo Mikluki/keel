@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
-"""watch: an ambient monitor over a .toons/ tree - the human-facing live loop (replaces the hook).
+"""watch: an ambient monitor over a toons/ tree - the human-facing live loop (replaces the hook).
 
-Instead of gating the agent on every edit, watch polls the (tiny) .toons/ tree; when a
+Instead of gating the agent on every edit, watch polls the (tiny) toons/ tree; when a
 container's slice/body settles it refreshes that container's <name>.view.md preview, re-lints
-it, prints a live status line, and maintains .toons/_watch.status so anyone can pull the latest
+it, prints a live status line, and maintains toons/_watch.status so anyone can pull the latest
 verdict cheaply. The agent is never interrupted - it pulls status on its own schedule.
 
-Watches ONLY .toons/ (graph-internal consistency + previews). At this scale a poll is ample, so
+Watches ONLY toons/ (graph-internal consistency + previews). At this scale a poll is ample, so
 there is no dependency and no daemon. Code<->graph drift (`drift`, a ripgrep scan of the code
 root) stays a PULL gate you run at CHECK; watch never scans the code root.
 
-    python watch.py                 # watch the .toons/ enclosing the cwd
-    python watch.py path/to/repo    # watch that repo's .toons/     (Ctrl-C to stop)
+    python watch.py                 # watch the toons/ enclosing the cwd
+    python watch.py path/to/repo    # watch that repo's toons/     (Ctrl-C to stop)
 """
 import subprocess
 import sys
@@ -28,7 +28,7 @@ STATUS_FILE = '_watch.status'
 
 
 def scan(toons):
-    """Snapshot {path: mtime} of every graph/view/body SOURCE under .toons/ (skip derived files)."""
+    """Snapshot {path: mtime} of every graph/view/body SOURCE under toons/ (skip derived files)."""
     snap = {}
     for p in toons.rglob('*'):
         if not p.is_file() or p.name.startswith('_') or p.name.endswith('.view.md'):
@@ -39,7 +39,7 @@ def scan(toons):
 
 
 def container_of(path, toons):
-    """The .toons/<slug>/ dir a changed file belongs to."""
+    """The toons/<slug>/ dir a changed file belongs to."""
     return toons / path.relative_to(toons).parts[0]
 
 
@@ -65,7 +65,7 @@ def report(ok, slug, summary):
 
 
 def write_status(toons, verdicts):
-    """Overwrite .toons/_watch.status with the current verdict for every container (pull target)."""
+    """Overwrite toons/_watch.status with the current verdict for every container (pull target)."""
     lines = [f"# keel watch  {toons}  (updated {stamp()})"]
     for slug in sorted(verdicts):
         ok, summary, ts = verdicts[slug]
@@ -114,7 +114,7 @@ def main():
     start = Path(args.positional[0]) if args.positional else Path('.')
     toons = containers.find_toons_root(start)
     if toons is None:
-        emit.die('NO_TOONS', f"no .toons/ at or above {start} - nothing to watch", exit_code=3)
+        emit.die('NO_TOONS', f"no toons/ at or above {start} - nothing to watch", exit_code=3)
     try:
         watch(toons)
     except KeyboardInterrupt:

@@ -81,7 +81,7 @@ def die(code, msg, *, exit_code=2) -> NoReturn:
     """Exit with a structured, greppable error an agent can branch on (P6).
 
     Exit-code taxonomy: 2 = usage error (bad flag/command/args); 3 = a valid call whose
-    target or a required dependency is absent (node / .toons/ / ripgrep). Gate failures
+    target or a required dependency is absent (node / toons/ / ripgrep). Gate failures
     (lint/drift) exit 1 from their own command; 0 is success.
     """
     print(f"error: {code}: {msg}", file=sys.stderr)

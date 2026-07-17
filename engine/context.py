@@ -6,7 +6,7 @@ the blast radius) + every invariant/decision that `touches` it + its code refs.
 ~20 lines instead of the whole spec - this is the loop's PICK step. With --code-root
 each ref edge also RESOLVES inline (status + file:line + the live matched line), so
 a ref'd constant shows its current value without the graph ever storing it.
-Resolution runs ONLY with a --code-root - typed, or supplied by the .toons slug
+Resolution runs ONLY with a --code-root - typed, or supplied by the toons slug
 contract (a bare <slug> arg injects the repo root). Never inferred from a plain path:
 a guessed root would decorate every ref with false MISSING noise.
 
@@ -27,10 +27,10 @@ exact ref target (`py/pkg/rigor.py#BOOT_REPS`), a /-boundary suffix of one
 node id, a selector, nor a matching ref target dies loud naming both.
 
     python context.py <node-id> [slices...]
-    python context.py <node> .toons/<slug> --code-root ../crate   # refs resolve inline
-    python context.py metric:tier=B .toons/<slug> --code-root ../crate   # a node SET's subgraph
-    python context.py src/auth.rs#AuthService .toons/<slug>       # code -> graph
-    python context.py <node> .toons/<slug> --brief     # truncate the prose body (full by default)
+    python context.py <node> toons/<slug> --code-root ../crate   # refs resolve inline
+    python context.py metric:tier=B toons/<slug> --code-root ../crate   # a node SET's subgraph
+    python context.py src/auth.rs#AuthService toons/<slug>       # code -> graph
+    python context.py <node> toons/<slug> --brief     # truncate the prose body (full by default)
 """
 import sys
 from pathlib import Path

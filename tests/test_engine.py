@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 
 import emit
+import containers
 from drift import jump_of, resolve
 from render import parse_toon
 
@@ -20,10 +21,13 @@ ENGINE = Path(__file__).resolve().parent.parent / 'engine'
 # FUNCTIONS
 # ============================================================================
 
-def run_cli(cmd, *args):
-    """Run `cli.py <cmd> <args...>` exactly as an agent would; return the result."""
+def run_cli(cmd, *args, cwd=None):
+    """Run `cli.py <cmd> <args...>` exactly as an agent would; return the result.
+
+    `cwd` sets the working dir the command sees (init/find/slug-shorthand are cwd-relative).
+    """
     return subprocess.run([sys.executable, str(ENGINE / 'cli.py'), cmd, *map(str, args)],
-                          capture_output=True, text=True)
+                          capture_output=True, text=True, cwd=cwd)
 
 
 def write_slice(tmp_path, text):
@@ -505,9 +509,9 @@ def test_matrix_table_fallback_grouping(tmp_path):
 
 
 def test_matrix_hint_compresses_container_to_slug(tmp_path):
-    # hints print the human-typeable form: a .toons/<slug>/ path arg compresses back to
+    # hints print the human-typeable form: a toons/<slug>/ path arg compresses back to
     # the bare slug, slices-first - exactly what the shorthand re-expands on the next call
-    cont = tmp_path / '.toons' / 'demo'
+    cont = tmp_path / 'toons' / 'demo'
     cont.mkdir(parents=True)
     (tmp_path / 'lib.py').write_text('def built(): pass\n')
     (cont / 'demo.graph.toon').write_text(MATRIX_SLICE)
@@ -699,3 +703,90 @@ def test_jump_of_assembles_root_relative_location(tmp_path):
     # non-OK: no location, evidence untouched
     loc, snip = jump_of('lib.py#GONE', *resolve('lib.py#GONE', tmp_path), tmp_path)
     assert loc == '' and snip is None
+
+
+# ============================================================================
+# init + worktree topology: the split-repo bootstrap and code-root binding
+# ============================================================================
+
+def _git(cwd, *args):
+    subprocess.run(['git', '-C', str(cwd), *args], check=True, capture_output=True, text=True)
+
+
+def _make_repo(tmp_path):
+    """A minimal committed git repo at tmp_path/proj (so its sibling worktree is proj-keel)."""
+    repo = tmp_path / 'proj'
+    repo.mkdir()
+    _git(repo, 'init', '-q')
+    _git(repo, 'config', 'user.email', 't@t')
+    _git(repo, 'config', 'user.name', 't')
+    (repo / 'src.py').write_text('K = 1\n')
+    _git(repo, 'add', '-A')
+    _git(repo, 'commit', '-q', '-m', 'init')
+    return repo
+
+
+def _branch(wt):
+    return subprocess.run(['git', '-C', str(wt), 'symbolic-ref', '--short', 'HEAD'],
+                          capture_output=True, text=True).stdout.strip()
+
+
+def test_git_worktrees_and_code_root_non_git(tmp_path):
+    # a graph dir outside any git repo keeps the co-located default (parent), never crashes
+    (tmp_path / 'toons').mkdir()
+    assert containers.git_worktrees(tmp_path) == []
+    assert containers.code_root_for(tmp_path / 'toons') == tmp_path
+
+
+def test_code_root_for_colocated_is_parent(tmp_path):
+    # a toons/ in the MAIN worktree resolves refs against that worktree - unchanged behavior
+    repo = _make_repo(tmp_path)
+    (repo / 'toons').mkdir()
+    assert containers.code_root_for(repo / 'toons').resolve() == repo.resolve()
+
+
+def test_init_creates_orphan_worktree(tmp_path):
+    repo = _make_repo(tmp_path)
+    r = run_cli('init', cwd=repo)
+    assert r.returncode == 0, r.stdout + r.stderr
+    wt = repo.parent / 'proj-keel'
+    assert wt.is_dir() and (wt / 'toons').is_dir() and (wt / '.gitignore').exists()
+    assert _branch(wt) == 'keel'
+    assert not (repo / 'toons').exists()          # the graph is NOT on disk in the code tree
+
+
+def test_init_binds_code_root_to_main_worktree(tmp_path):
+    # the payoff: from the split worktree, code_root_for points back at the code, not its own dir
+    repo = _make_repo(tmp_path)
+    run_cli('init', cwd=repo)
+    wt = repo.parent / 'proj-keel'
+    assert containers.code_root_for(wt / 'toons').resolve() == repo.resolve()
+
+
+def test_init_is_idempotent(tmp_path):
+    repo = _make_repo(tmp_path)
+    run_cli('init', cwd=repo)
+    r = run_cli('init', cwd=repo)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert 'present' in r.stdout
+
+
+def test_init_reattaches_existing_branch(tmp_path):
+    repo = _make_repo(tmp_path)
+    run_cli('init', cwd=repo)
+    wt = repo.parent / 'proj-keel'
+    _git(repo, 'worktree', 'remove', '--force', str(wt))   # branch keel survives, worktree gone
+    r = run_cli('init', cwd=repo)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert 'attached' in r.stdout and _branch(wt) == 'keel'
+
+
+def test_init_refuses_target_inside_code_tree(tmp_path):
+    repo = _make_repo(tmp_path)
+    r = run_cli('init', repo / 'inside', cwd=repo)
+    assert r.returncode == 2 and 'NESTED' in r.stderr
+
+
+def test_init_outside_git_dies_loud(tmp_path):
+    r = run_cli('init', cwd=tmp_path)              # tmp_path is not a git repo
+    assert r.returncode == 2 and 'NO_REPO' in r.stderr

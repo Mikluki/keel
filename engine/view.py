@@ -6,7 +6,7 @@ to a stable file next to the graph, so an editor can keep it open and hot-reload
 the manual regen command AND what `watch` calls when a graph changes, so the rendered
 view never drifts from the graph. A derived artifact - gitignored, never hand-edited.
 
-    python view.py .toons/<slug>        # -> .toons/<slug>/<slug>.view.md
+    python view.py toons/<slug>        # -> toons/<slug>/<slug>.view.md
     python view.py                      # the graph dir in the cwd -> <cwd>.view.md
 
 On a render failure the file gets an error banner instead of going stale, so a broken

@@ -8,7 +8,7 @@ domain's node/edge kinds - those live in the .toon data.
 
     python lint.py                 # all *.graph.toon in cwd
     python lint.py a.graph.toon b.graph.toon a.views.toon
-    python lint.py .toons/<slug> --toon       # structured (TOON) body for an agent
+    python lint.py toons/<slug> --toon       # structured (TOON) body for an agent
 """
 import sys
 

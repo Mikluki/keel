@@ -90,9 +90,9 @@ and 10 are argument-layer fixes in `cli.py`; 7 is the opt-in `watch` monitor.
    interactive prompts, fail loud on unknown flags.
    - [x] `emit.parse` validates flags per command, exiting 2 on any unknown flag.
    - [x] `emit.die` gives errors a stable `error: CODE: message` shape; exit codes: 2 usage,
-     3 target/dependency absent (node / .toons / ripgrep), 1 a failed gate.
+     3 target/dependency absent (node / toons / ripgrep), 1 a failed gate.
 7. **Ambient context** - offer opt-in ambient integration, with the skill as the on-demand path.
-   - [x] `cli.py watch` runs a decoupled poll-monitor over `.toons/` (refresh previews + lint
+   - [x] `cli.py watch` runs a decoupled poll-monitor over `toons/` (refresh previews + lint
      on change, maintain `_watch.status`); it never interrupts the agent, which pulls
      `check`/`status` on its own schedule. Skill stays the on-demand path.
 8. **Content first** - show actual data, not a wall of help text.  (ok)
@@ -114,7 +114,7 @@ and 10 are argument-layer fixes in `cli.py`; 7 is the opt-in `watch` monitor.
     deploy.sh      install skill/ + engine/ -> ~/.claude/skills/keel/ (real copy; re-run = reinstall)
                    also symlinks completion/_keel onto $fpath (oh-my-zsh auto-detected)
     engine/        the agnostic tool (code only, no domain words)
-      cli.py         entry point (-h: render|lint|drift|status|todo|matrix|check|context|find|new; -hh adds view|index|watch)
+      cli.py         entry point (-h: render|lint|drift|status|todo|matrix|check|context|find|new; -hh adds init|view|index|watch)
       render.py      parse/union + 4 view primitives (table / join / entry / matrix)
       view.py        materialize the render to <dir>/<name>.view.md (live-preview artifact)
       lint.py        graph-internal gate
@@ -123,55 +123,66 @@ and 10 are argument-layer fixes in `cli.py`; 7 is the opt-in `watch` monitor.
       todo.py        ranked worklist derived from the graph (fix > ready lanes > decide > blocked)
       matrix.py      derived coverage pivot: two edge kinds crossed through a table (gaps first-class)
       context.py     1-hop context of a node (--code-root: refs resolve inline) or a code coordinate (who pins it)
-      index.py       derived repo-wide .toons/ roll-up + slug<->anchor invariant
+      index.py       derived repo-wide toons/ roll-up + slug<->anchor invariant
       find.py        reverse lookup: a source path -> its anchoring container
-      containers.py  shared .toons/ protocol core (slug math, discovery, reverse lookup)
+      containers.py  shared toons/ protocol core (slug math, discovery, reverse lookup)
       emit.py        shared agent-output layer (--toon / truncation / counts / errors / next)
-      new.py         scaffold a fresh .toons/<slug>/ container (cold start)
-      watch.py       poll .toons/, refresh previews + lint on change (human live loop)
-    examples/      a self-contained .toons/ repo (root == examples/) that exercises the FULL
+      new.py         scaffold a fresh toons/<slug>/ container (cold start)
+      init.py        stand up the sibling <repo>-keel/ worktree on branch keel (split-repo bootstrap)
+      watch.py       poll toons/, refresh previews + lint on change (human live loop)
+    examples/      a self-contained toons/ repo (root == examples/) that exercises the FULL
                    engine - the container protocol too, so watch/index/find/<slug> all fire
-      .toons/src-auth/auth.graph.toon       agnosticism: a non-RNG vocabulary, all planned (no code)
-      .toons/refs-fixtures/refs.graph.toon  ref-edge drift demo, anchored at refs/fixtures/
+      toons/src-auth/auth.graph.toon       agnosticism: a non-RNG vocabulary, all planned (no code)
+      toons/refs-fixtures/refs.graph.toon  ref-edge drift demo, anchored at refs/fixtures/
       refs/fixtures/{sample.py,degraded.rs} the code those ref edges resolve against
-    completion/    _keel - zsh tab-completion (subcommands + this repo's .toons/ slugs)
+    completion/    _keel - zsh tab-completion (subcommands + this repo's toons/ slugs)
 
 # Run
 Dev form (from this repo's root) is shown below; installed, swap `python engine/cli.py` for `keel`:
 
+    python engine/cli.py init                               # one-time: stand up the sibling <repo>-keel/ worktree
     python engine/cli.py new    <src-anchor>                # scaffold a fresh container (cold start)
     python engine/cli.py find   <src-file>                  # source -> its container (front door)
     python engine/cli.py context <node|file#sym> <target dir>  # 1-hop edit context (PICK); file#sym: who pins it
-    python engine/cli.py check  <target dir> --root <code>  # lint + drift (the CHECK gate)
-    python engine/cli.py status <target dir> --root <code>  # divergence dashboard
-    python engine/cli.py todo   [goal] <target dir> --root <code>  # ranked worklist: what next
-    python engine/cli.py matrix <target dir> [pivot "<a> x <b>"] --root <code>  # coverage pivot (no axes: candidates)
+    python engine/cli.py check  <target dir> --code-root <code>  # lint + drift (the CHECK gate)
+    python engine/cli.py status <target dir> --code-root <code>  # divergence dashboard
+    python engine/cli.py todo   [goal] <target dir> --code-root <code>  # ranked worklist: what next
+    python engine/cli.py matrix <target dir> [pivot "<a> x <b>"] --code-root <code>  # coverage pivot (no axes: candidates)
     python engine/cli.py render <target dir>                # human view
-    python engine/cli.py watch  <target dir>                # live: poll .toons/, refresh + lint on change
-    python engine/cli.py index                              # repo-wide .toons/ roll-up
+    python engine/cli.py watch  <target dir>                # live: poll toons/, refresh + lint on change
+    python engine/cli.py index                              # repo-wide toons/ roll-up
 
-`<target dir>` is a container dir, a file, or a bare `<slug>` (which resolves `.toons/<slug>/`
-and defaults `--root`). `--root` is the CODE root for ref resolution (your crate/package),
+`<target dir>` is a container dir, a file, or a bare `<slug>` (which resolves `toons/<slug>/`
+and defaults `--code-root`). `--code-root` (`-cc`) is the CODE root for ref resolution (your crate/package),
 separate from the graph dir. Query commands take `--toon` (structured body for an agent),
 `--brief` (size-hinted truncation; output is FULL by default), and `-h`/`--help` (its own
 reference); `new` / `view` / `index` / `watch` write files (a new container, a preview, the
 roll-up, the watch status).
 
-# Containers - where toons live in a large repo
+# Containers - where toons live
 Don't map the whole repo, only the IDEA LAYER that needs focused attention (a dense
-module, a cross-cutting concept). Each concept is a container under a single `.toons/` dir
-at the repo core; a container IS a graph dir, so the engine runs on it unchanged.
+module, a cross-cutting concept). Each concept is a container under a single `toons/` dir;
+a container IS a graph dir, so the engine runs on it unchanged.
 
-    <repo-root>/                            == --root
-    ├── scripts/viz/lenses.py               <- the anchor (the idea layer)
-    └── .toons/
-        ├── _index.toon                     <- derived repo-wide roll-up (never hand-edited)
-        └── scripts-viz-lenses/             <- one concept = one graph dir
-            ├── lenses.graph.toon             slice: nodes/edges/invariants/decisions
-            ├── lenses.views.toon             optional human views
-            └── bodies/<node>.md              prose too big for a cell
+The graph does NOT live inside the code tree. `keel init` puts it in a sibling worktree
+`<repo>-keel/` on an orphan branch `keel`, so a worker grepping the code repo never trips over
+`toons/` and "fixes" a divergence that is a first-class keel STATE, not a bug. The graph still
+travels with the repo (a branch/ref), and `--code-root` binds back to the code automatically -
+git lists the main worktree first, so a bare `<slug>` resolves against the code with no flag:
 
-    python <engine>/cli.py check scripts-viz-lenses    # <slug> resolves the dir + --root for you
+    <parent>/
+    ├── <repo>/                             == --code-root (the code tree, no toons/ on disk)
+    │   └── scripts/viz/lenses.py           <- the anchor (the idea layer)
+    └── <repo>-keel/                        == the keel worktree (branch `keel`)
+        └── toons/
+            ├── _index.toon                 <- derived repo-wide roll-up (never hand-edited)
+            └── scripts-viz-lenses/         <- one concept = one graph dir
+                ├── lenses.graph.toon         slice: nodes/edges/invariants/decisions
+                ├── lenses.views.toon         optional human views
+                └── bodies/<node>.md          prose too big for a cell
+
+    keel init                                          # one-time: stand up the sibling worktree
+    python <engine>/cli.py check scripts-viz-lenses    # from it; <slug> resolves the dir + --code-root
 
 Naming rule:
 
@@ -184,7 +195,7 @@ concept that SPANS DIRS picks ONE primary anchor for its slug and reaches the re
 `ref` edges: the slug names the concept by its home, not its full footprint.
 
 The slug and the slice's `refs: {logic: scripts/viz/lenses.py}` encode the SAME path, so
-`slug == flatten(refs.logic)` is a checkable, unique-across-`.toons/` invariant. A collision
+`slug == flatten(refs.logic)` is a checkable, unique-across-`toons/` invariant. A collision
 fails loud; the source extension is dropped, appended (`-py`/`-rs`) only when two anchors
 would otherwise collide. That invariant makes `_index.toon` derivable (roll up each anchor's
 planned/impl/drifted - it can't drift, nothing hand-writes it) and the front door a reverse
@@ -193,13 +204,14 @@ there is no toon yet).
 
 Three commands operationalize it (all in `containers.py`):
 
-    index   walk .toons/*/, refresh the derived _index.toon board, and enforce the
+    index   walk toons/*/, refresh the derived _index.toon board, and enforce the
             slug<->anchor invariant (a misnamed dir or an undisambiguable collision -> exit 1).
             --check validates without writing.
     find    reverse lookup: `find <source-path>` walks up to the anchoring container, or
             prints the candidate slugs + a bootstrap hint on a miss.
     <slug>  any command accepts a bare container slug in place of the dir path; it resolves
-            .toons/<slug>/ and defaults --root to the repo root (walk up to .toons/'s parent).
+            toons/<slug>/ and defaults --code-root to the code root (the main worktree in the
+            split layout, else toons/'s parent).
 
 Source-code edits are NOT watched (that would mean scanning the whole code root): graph<->code
 drift is a pull-time gate. Run `check`/`drift` at RECONCILE, and use `find <source-path>` to map
@@ -215,7 +227,7 @@ a file you are about to edit to its container.
     canonical  = intent + structure + decisions + invariants; logic/numbers are refs->code
 
 # Proof it is algorithm-agnostic
-`examples/.toons/src-auth/auth.graph.toon` models a web-auth spec (components / policies / an invariant) with
+`examples/toons/src-auth/auth.graph.toon` models a web-auth spec (components / policies / an invariant) with
 node and edge kinds the engine has never heard of, yet it renders and lints through the exact
 same engine - zero engine changes. A spec may be partial: unresolved cross-slice refs are
 listed, not failed - a property of the content, not the tool.

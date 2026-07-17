@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""new: scaffold a fresh .toons/<slug>/ container for a code anchor - the cold-start bootstrap.
+"""new: scaffold a fresh toons/<slug>/ container for a code anchor - the cold-start bootstrap.
 
 Given the code your design will describe (a file or dir), compute its slug, create the
-container in the right place (an existing enclosing .toons/, else <root>/.toons/), and seed a
+container in the right place (an existing enclosing toons/, else <root>/toons/), and seed a
 minimal VALID slice you then edit. This is `find`'s MISS branch automated: no hand-mkdir, no
 slug guessing, no format-guessing - lint/render/check pass on the skeleton as-is, so you edit
 from a green baseline. Grammar to fill it in: references/schema.md.
 
-    python new.py src/parser/lexer.rs --code-root ../my-crate      # -> .toons/src-parser-lexer/
+    python new.py src/parser/lexer.rs --code-root ../my-crate      # -> toons/src-parser-lexer/
     python new.py src/auth/ --code-root ../my-crate --toon          # structured body for an agent
 """
 import sys
@@ -70,7 +70,7 @@ def main():
         print(f"  {slice_file}")
         print(f"  {container}/bodies/   (drop <id>.md prose here)")
     emit.nxt(f"fill in {slice_file.name} (grammar: references/schema.md), "
-             f"then keel check {container} --code-root {root}", toon=args.toon, guide=True)
+             f"then keel check {containers.display_arg(str(container))}", toon=args.toon, guide=True)
 
 
 if __name__ == '__main__':
