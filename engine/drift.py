@@ -10,6 +10,11 @@ graph diff, a rename fails the gate. Resolution uses ripgrep with Rust/Python
 definition patterns, so the agent never greps by hand and a renamed or missing
 symbol FAILS the gate instead of silently rotting the design.
 
+It also guards the REVERSE direction (membrane_leaks): the reference is one-way, so
+code must never name the graph back. A `.graph.toon` path, a `toons/` reference, or a
+`keel node/decision ...` comment in the code tree is an un-checked back-reference that
+rots green and seeds design prose leaking into comments - it FAILS the gate too.
+
     python drift.py *.graph.toon --code-root ../my-crate
     python drift.py toons/<slug> --code-root ../my-crate --toon     # structured body for an agent
 """
@@ -39,11 +44,37 @@ def py_pat(sym):
 PAT = {'.rs': rust_pat, '.py': py_pat}
 RG_LANG = {'.rs': 'rust', '.py': 'py'}
 
+# The reverse membrane. keel refs code ONE WAY (the ref edges above); code must
+# never name the graph back. A `.graph.toon` path, a `toons/` reference, or a
+# `keel node/decision ...` comment in code is an un-checked back-reference: it rots
+# green (a renamed node silently lies) and normalizes design prose leaking into
+# comments where nothing checks it. A hit in CODE is graph-only vocabulary = a leak.
+MEMBRANE_PAT = (r'\.(graph|views|results)\.toon'
+                r'|\btoons/'
+                r'|\bkeel:'
+                r'|\bkeel (node|graph|decision|invariant|spec|slice|container|slug)')
+
+# Never scan keel's OWN artifacts (the graph legitimately speaks graph-vocabulary),
+# wherever they sit: the toons/ tree co-located, or a stray slice in the code root.
+MEMBRANE_EXCLUDE = tuple(
+    x for g in ('**/toons/**', '*.graph.toon', '*.views.toon', '*.results.toon',
+                '*.view.md', '_index.toon', '_watch.status')
+    for x in ('--glob', f'!{g}'))
+
 
 def rg(pattern, *targets, extra=()):
     cmd = ['rg', '--no-heading', '-n', '--color=never', *extra, '-e', pattern, *map(str, targets)]
     out = subprocess.run(cmd, capture_output=True, text=True)
     return [ln for ln in out.stdout.splitlines() if ln.strip()]
+
+
+def membrane_leaks(root):
+    """Every code->graph back-reference under `root` (file:line:content); the reverse of
+    drift. drift checks graph->code refs EXIST; this checks code->graph refs do NOT.
+    Split-repo puts the graph off the code tree, so any hit is a leak; co-located, the
+    toons/ tree and keel artifacts are excluded so only a real source leak matches.
+    """
+    return rg(MEMBRANE_PAT, root, extra=('-i', *MEMBRANE_EXCLUDE))
 
 
 def resolve(target, root):
@@ -136,28 +167,43 @@ def main():
         rows.append({'status': status, 'state': st, 'from': e['from'], 'to': e['to'],
                      'evidence': evidence_str(status, ev, args.full)})
 
+    leaks = membrane_leaks(root)   # reverse membrane: code must never name the graph
     n_ok = sum(1 for r in rows if r['status'] == 'OK')
     names = ', '.join(n for n, _, _ in slices)
     if args.toon:
         print(emit.toon(
             {'slices': names, 'refs': len(refs), 'resolved': n_ok,
-             'failing': bad, 'muted': muted, 'root': root},
-            {'refs': (['status', 'state', 'from', 'to', 'evidence'], rows)}))
+             'failing': bad, 'muted': muted, 'leaks': len(leaks), 'root': root},
+            {'refs': (['status', 'state', 'from', 'to', 'evidence'], rows),
+             'membrane': (['hit'], [{'hit': ln} for ln in leaks])}))
     else:
         print(f"drift [{names}]: {len(refs)} ref edges, {n_ok} resolved, "
-              f"{bad} failing (canon), {muted} muted (explore/dropped), root={root}")
+              f"{bad} failing (canon), {muted} muted (explore/dropped), "
+              f"{len(leaks)} membrane leak(s), root={root}")
         if not refs:
             print("  0 ref edges - no graph node points at code yet")
         for r in rows:
             tail = f"   [{r['evidence']}]" if r['evidence'] else ''
             tag = '' if r['state'] == 'canon' else f" ({r['state']})"
             print(f"  {r['status']:12} {r['from']:14}{tag} -> {r['to']}{tail}")
+        if leaks:
+            print("  MEMBRANE: code names the graph (it must not - the graph refs code one "
+                  "way; a back-reference rots green):")
+            for ln in (leaks if args.full else leaks[:12]):
+                print(f"     x {ln}")
+            if not args.full and len(leaks) > 12:
+                print(f"     (+{len(leaks) - 12} more; --full)")
 
     slice_args = ' '.join(containers.display_arg(a) for a in args.positional) or '.'
-    if bad:
-        emit.nxt("point each failing canon ref at real code (ref,<node>,file#symbol), "
-                 "or set the node state:explore/dropped, then re-run keel check",
-                 toon=args.toon)
+    if bad or leaks:
+        if bad:
+            emit.nxt("point each failing canon ref at real code (ref,<node>,file#symbol), "
+                     "or set the node state:explore/dropped, then re-run keel check",
+                     toon=args.toon)
+        else:
+            emit.nxt("delete the keel reference from code - the graph refs code one way, never "
+                     "the reverse (keep the logic, drop the comment/path), then re-run keel check",
+                     toon=args.toon)
         sys.exit(1)
     emit.nxt(f"keel status {slice_args} --code-root <code> for the divergence dashboard",
              toon=args.toon, guide=True)

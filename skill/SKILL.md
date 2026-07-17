@@ -73,6 +73,15 @@ each body becomes a deliberate artifact the human requests - not something re-wr
 turn. When the prose has fallen behind the graph, say so and offer a body sync; do not silently
 regenerate it.
 
+The one exception is a MOVE, not new prose. When `check`/`status` flags a cell over the
+one-liner limit (or `check` hard-fails one grown into a body-in-a-cell), relocating that cell's
+prose into `bodies/<id>.md` and leaving a one-liner is a REFACTOR - the same words, their
+correct home, zero new information - so do it as part of clearing the gate, no separate ask.
+That is different from AUTHORING (expanding a rationale, writing a body from scratch), which
+still waits for the human. Numbers do not move to the body either: a measured value goes to a
+results sidecar `finding`, a chosen constant to a code symbol the node `ref`s (see
+Measurements). Move the prose, leave the verdict, cite the number - never paste it back.
+
 ## Measurements: an opt-in results sidecar (ask first, do not reflex)
 Most graphs have NO measured results - keep numbers out of the model entirely. But an
 EMPIRICAL design (experiments, benchmarks - findings that change every run and that
@@ -175,6 +184,12 @@ its `=` means ref'd; this command and `check` do the drift-checking).
   attributes only.
 - The graph owns intent/structure/decisions/invariants; code owns logic; the graph holds
   `ref -> code`, never a copy of the logic. A logic-only change touches no graph node.
+- The reference is ONE-WAY: the graph names code, code NEVER names the graph. Do not write
+  `keel`, a node/decision id, a `.graph.toon` path, or a `toons/` reference into code or a
+  code comment - `check` FAILS on it. A back-reference is un-checked (a renamed node silently
+  lies) and it seeds design prose leaking into comments where nothing checks it; the `ref` edge
+  is the only link and it lives in the graph. Isolation (the sibling keel worktree) keeps the
+  graph off the code tree for the same reason - the membrane is structural, not a plea.
 - One node = anything referenced elsewhere. Prose that nothing references is a body, not a node.
 - A node's `state` column is its COMMITMENT lane (explore/canon/dropped, unset ≡ canon),
   orthogonal to whether it is built. Only canon gates; a canon node must not depend on an

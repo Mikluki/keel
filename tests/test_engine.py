@@ -411,6 +411,69 @@ def test_index_rollup_shows_weight(tmp_path):
 
 
 # ============================================================================
+# membrane: the reverse guard - code must never name the graph (check FAILS on a leak)
+# ============================================================================
+
+def _slice_and_code(tmp_path, code):
+    write_slice(tmp_path, 'slice: t\nn[1]{id,card}:\n  a,"a node"\n')
+    (tmp_path / 'lib.py').write_text(code)
+
+
+def test_graph_file_named_in_code_is_a_leak(tmp_path):
+    _slice_and_code(tmp_path, '# implements toons/foo/x.graph.toon\ndef f(): pass\n')
+    r = run_cli('drift', tmp_path, '--code-root', tmp_path)
+    assert r.returncode == 1, r.stdout + r.stderr
+    assert 'MEMBRANE' in r.stdout
+    assert '1 membrane leak' in r.stdout
+
+
+def test_keel_decision_comment_is_a_leak(tmp_path):
+    _slice_and_code(tmp_path, 'def f():\n    return 1  # see keel decision D-cutoff\n')
+    r = run_cli('drift', tmp_path, '--code-root', tmp_path)
+    assert r.returncode == 1, r.stdout + r.stderr
+    assert 'MEMBRANE' in r.stdout
+
+
+def test_keel_label_comment_is_a_leak(tmp_path):
+    _slice_and_code(tmp_path, '# keel: this realizes the ratelimit node\ndef f(): pass\n')
+    r = run_cli('drift', tmp_path, '--code-root', tmp_path)
+    assert r.returncode == 1, r.stdout + r.stderr
+
+
+def test_membrane_leak_gates_check(tmp_path):
+    # the hard error flows all the way through `check` (lint + drift)
+    _slice_and_code(tmp_path, '# per the keel graph in toons/\ndef f(): pass\n')
+    r = run_cli('check', tmp_path, '--code-root', tmp_path)
+    assert r.returncode == 1, r.stdout + r.stderr
+    assert 'MEMBRANE' in r.stdout
+
+
+def test_clean_code_has_no_leak(tmp_path):
+    _slice_and_code(tmp_path, 'def f():\n    return 42  # a normal comment\n')
+    r = run_cli('drift', tmp_path, '--code-root', tmp_path)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert '0 membrane leak' in r.stdout
+
+
+def test_graph_slice_itself_is_not_a_leak(tmp_path):
+    # keel's OWN artifacts are excluded wherever they sit: this slice's card literally says
+    # "toons/", but it is a *.graph.toon file, so it is not scanned - only SOURCE leaks count
+    write_slice(tmp_path, 'slice: t\nn[1]{id,card}:\n  a,"anchored under toons/ in the repo"\n')
+    (tmp_path / 'lib.py').write_text('def f(): pass\n')
+    r = run_cli('drift', tmp_path, '--code-root', tmp_path)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert '0 membrane leak' in r.stdout
+
+
+def test_membrane_pattern_avoids_false_positives(tmp_path):
+    # a bare `keel` identifier and a `-toons/` suffix word must NOT trip the guard
+    _slice_and_code(tmp_path, 'keel = load()\npath = "assets/cartoons/a.png"\n')
+    r = run_cli('drift', tmp_path, '--code-root', tmp_path)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert '0 membrane leak' in r.stdout
+
+
+# ============================================================================
 # output is FULL by default; --brief opts into truncation
 # ============================================================================
 
