@@ -14,8 +14,9 @@ import sys
 
 import containers
 import emit
-from render import (CARD_MAX, STATES, SYSTEM_TABLES, card_warnings, load_union,
-                    resolve_paths, split, state_of)
+from render import (CELL_HARD_MAX, CELL_MAX, STATES, SYSTEM_TABLES, cell_errors,
+                    cell_warnings, leaked_numbers, load_union, resolve_paths, split,
+                    state_of)
 
 
 def node_rows(tables):
@@ -77,19 +78,28 @@ def main():
                 if r['id'] not in touched:
                     errors.append(f"{tbl} '{r['id']}' missing a '{ek}' edge")
 
+    for ce in cell_errors(tables, slices, prov):   # hard: a canon cell grown into a body gates check
+        errors.append(f"cell '{ce['id']}.{ce['col']}' is {ce['len']} chars (>{CELL_HARD_MAX}) - "
+                      f"a body in a cell; move it to bodies/{ce['id']}.md and leave a one-liner")
+
     names = ', '.join(n for n, _, _ in slices)
     unresolved = sorted(externals)
     n_edges = len(tables.get('edges', []))
-    warnings = card_warnings(tables, slices, prov)   # soft: cards grown into prose (non-gating)
+    warnings = cell_warnings(tables, slices, prov)   # soft: prose cells grown past a one-liner (non-gating)
+    leaks = leaked_numbers(tables, slices, prov)     # soft: measured numbers stranded in prose (non-gating)
 
     if args.toon:
         print(emit.toon(
             {'slices': names, 'nodes': len(ids), 'edges': n_edges,
-             'unresolved': len(unresolved), 'warnings': len(warnings), 'errors': len(errors)},
+             'unresolved': len(unresolved), 'warnings': len(warnings),
+             'leaked': len(leaks), 'errors': len(errors)},
             {'unresolved': (['ref'], [{'ref': x} for x in unresolved]),
-             'warnings': (['id', 'chars', 'has_body'],
-                          [{'id': w['id'], 'chars': w['len'], 'has_body': w['has_body']}
+             'warnings': (['id', 'col', 'chars', 'has_body'],
+                          [{'id': w['id'], 'col': w['col'], 'chars': w['len'],
+                            'has_body': w['has_body']}
                            for w in warnings]),
+             'leaked': (['id', 'col', 'hit'],
+                        [{'id': k['id'], 'col': k['col'], 'hit': k['hit']} for k in leaks]),
              'errors': (['detail'], [{'detail': e} for e in errors])}))
     else:
         print(f"lint [{names}]: {len(ids)} nodes, {n_edges} edges, "
@@ -99,18 +109,29 @@ def main():
         else:
             print("  unresolved cross-slice refs: 0")
         if warnings:
-            print(f"  warnings ({len(warnings)}): cards over {CARD_MAX} chars are prose, not a table row -")
-            print("    card = intent; rationale -> bodies/<id>.md; measured findings -> a results sidecar "
+            print(f"  warnings ({len(warnings)}): cells over {CELL_MAX} chars are prose, not a table row -")
+            print("    cell = intent; rationale -> bodies/<id>.md; measured findings -> a results sidecar "
                   "or refs.numbers data; chosen constants -> code, ref'd by symbol (file#CONST) "
-                  "(a card is never drift-checked, so a stale number there passes green)")
+                  "(a cell is never drift-checked, so a stale number there passes green)")
             shown = warnings if args.full else warnings[:12]
             for w in shown:
                 split_note = "  (also has a body - rationale split two ways)" if w['has_body'] else ""
-                print(f"    {w['id']:24} {w['len']:>4} chars{split_note}")
+                print(f"    {w['id']:24} {w['col']:12} {w['len']:>4} chars{split_note}")
             if len(warnings) > len(shown):
                 print(f"    (+{len(warnings) - len(shown)} more; --full)")
         else:
-            print("  warnings: 0 - every card is a one-liner")
+            print("  warnings: 0 - every cell is a one-liner")
+        if leaks:
+            print(f"  leaks ({len(leaks)}): numbers with no drift-checked home - move to a results "
+                  "sidecar finding, or ref a constant (file#CONST); a number in a prose cell is "
+                  "never drift-checked, so it rots green")
+            shown = leaks if args.full else leaks[:12]
+            for lk in shown:
+                print(f"    {lk['id']:24} {lk['col']:12} {lk['hit']}")
+            if len(leaks) > len(shown):
+                print(f"    (+{len(leaks) - len(shown)} more; --full)")
+        else:
+            print("  leaks: 0 - no measured numbers stranded in prose")
         if errors:
             print(f"  ERRORS ({len(errors)}):")
             for er in errors:

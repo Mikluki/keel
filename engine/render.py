@@ -28,6 +28,7 @@ import emit
 
 HEADER = re.compile(r'^(\w+)\[(\d+)\]\{([^}]+)\}:\s*$')
 SYSTEM_TABLES = {'edges', 'views', 'rules'}
+RESERVED_COLS = {'id', 'state', 'touches'}   # structural columns; everything else is a prose cell
 STATES = ('canon', 'explore', 'dropped')   # declared commitment axis; an unset state is canon
 BODY_HEADING = re.compile(r'^(#{1,6})(?=\s|$)')   # an ATX heading line inside a prose body
 FENCE = re.compile(r'^\s*(?:```+|~~~+)')          # a fenced-code delimiter (its `#`s are code)
@@ -127,19 +128,24 @@ def load_union(paths):
     return slices, tables, prov
 
 
-CARD_MAX = 200   # a card is the table ROW, not the body: past this it has grown into prose
+CELL_MAX = 200   # a prose cell is a one-liner; past this it has grown into a paragraph
+CELL_HARD_MAX = 3000   # ~500 words / half an editor screen; past this a cell is a body in a cell
 
 
-def card_warnings(tables, slices, prov, limit=CARD_MAX):
-    """Node `card`s that have outgrown a one-liner into prose - a soft, NON-gating smell.
+def cell_warnings(tables, slices, prov, limit=CELL_MAX):
+    """Prose cells that have outgrown a one-liner into a paragraph - a soft, NON-gating smell.
 
-    A card is the table-view row; the full rationale belongs in bodies/<id>.md and any
-    MEASURED numbers in refs.numbers - never the card. `check` drift-checks code refs, but
-    nothing checks a card, so a stale result pasted there passes green forever. Returns rows
-    over `limit` chars as {id, len, has_body}, longest first; has_body flags the split-brain
-    case (a long card that ALSO has a body - the same rationale living in two places).
-    Scoped to `card` on purpose: a decision's chose/rejected/why is a different column with a
-    different discipline (a verdict, not a one-liner).
+    A prose cell is every NON-reserved column on a node row: reserved (RESERVED_COLS =
+    id/state/touches) is structure, everything else - card, why, chose, rejected, statement,
+    ... - is a one-liner whose full form belongs in bodies/<id>.md, with MEASURED numbers in a
+    results sidecar. Deriving the CLASS (non-reserved) rather than naming columns is the point:
+    any new free-text column is covered the day it is added, and short columns (layer, tier,
+    run) never reach the limit, so the same rule over every cell is free. `check` drift-checks
+    code refs but never a cell, so a stale result pasted into one passes green forever. Returns
+    one entry per offending CELL as {id, col, len, has_body}, longest first; has_body flags the
+    split-brain case (a long cell that ALSO has a body - the same rationale in two places).
+    Measurement rows (the results-sidecar shape, `finding` + `touches`) are exempt via the SAME
+    predicate as measured_ids so the two never drift - the sidecar is the home for churny numbers.
     """
     root_of = {name: d for name, _, d in slices}
     out = []
@@ -147,12 +153,116 @@ def card_warnings(tables, slices, prov, limit=CARD_MAX):
         if name in SYSTEM_TABLES:
             continue
         for r in rows:
-            n = len(r.get('card', ''))
-            if n > limit:
-                nid = r.get('id', '?')
-                body = root_of.get(prov.get(nid), Path('.')) / 'bodies' / f'{nid}.md'
-                out.append({'id': nid, 'len': n, 'has_body': body.exists()})
+            if 'finding' in r and 'touches' in r:   # a measurement row (see measured_ids) - exempt
+                continue
+            offenders = [(col, len(val)) for col, val in r.items()
+                         if col not in RESERVED_COLS and len(val) > limit]
+            if not offenders:
+                continue
+            nid = r.get('id', '?')
+            body = root_of.get(prov.get(nid), Path('.')) / 'bodies' / f'{nid}.md'
+            has_body = body.exists()
+            out += [{'id': nid, 'col': col, 'len': n, 'has_body': has_body}
+                    for col, n in offenders]
     return sorted(out, key=lambda w: -w['len'])
+
+
+def cell_errors(tables, slices, prov, limit=CELL_HARD_MAX):
+    """Prose cells so long they are a body pasted into a table cell - a HARD gate (exit 1).
+
+    The hard companion to cell_warnings: SAME per-CELL, non-reserved, measurement-exempt
+    derivation, but at L2 (CELL_HARD_MAX) a cell has no honest reading left - it is a body, not
+    a one-liner, and its home is bodies/<id>.md. This tier gates CANON only (state_of == canon);
+    explore and dropped still earn the soft warn, so nothing is invisible, and canon-only matches
+    keel's other hard gates (needs-edge, canon-depends-on-explore) - a still-provisional idea is
+    not held to the shipping bar. Returns one entry per offending CANON cell as {id, col, len},
+    longest first; `check` appends each to its errors. slices/prov mirror cell_warnings' signature.
+    """
+    out = []
+    for name, rows in tables.items():
+        if name in SYSTEM_TABLES:
+            continue
+        for r in rows:
+            if 'finding' in r and 'touches' in r:   # a measurement row (see measured_ids) - exempt
+                continue
+            if state_of(r) != 'canon':              # hard tier gates canon only (see docstring)
+                continue
+            out += [{'id': r.get('id', '?'), 'col': col, 'len': len(val)}
+                    for col, val in r.items()
+                    if col not in RESERVED_COLS and len(val) > limit]
+    return sorted(out, key=lambda w: -w['len'])
+
+
+_NUM_LEAK = re.compile(r'\d+\.\d+|\d+\s*/\s*\d+|\d+[eE][+-]?\d+|[~±]\s*\d')
+
+
+def leaked_numbers(tables, slices, prov):
+    """Measured/empirical numbers stranded in a prose cell that has no drift-checked home.
+
+    The inverse of measured_ids: a CHOSEN number's home is a ref'd constant (file#CONST, which
+    drift.py verifies) and a MEASURED one's is a results-sidecar `finding`; a number sitting in a
+    prose cell on a node with NEITHER rots green - `check` drift-checks refs, never a cell, so a
+    stale value there passes forever. Scans every NON-reserved cell (A's class) and flags a node
+    with no `ref` edge that is also not measured (measured_ids). _NUM_LEAK matches only empirical
+    SHAPES - decimals (4.75), ratios (13/20), sci-notation (8e4), a digit next to ~/± (~4160) -
+    and deliberately SKIPS bare integers ('pinned at 25'), where false positives explode.
+
+    Warn-only and heuristic, so known false positives are accepted: version strings ('Python
+    3.14') and dates ('07/18') read as decimals/ratios, and exempt-if-ref means a ref'd node can
+    still hide a pasted value - a deliberate trade so the warning stays credible (a leak on an
+    unref'd, unmeasured node is the high-signal case). One entry per offending CELL as
+    {id, col, hit} (hit = the matched token), most conspicuous first. slices/prov mirror the
+    cell_warnings signature.
+    """
+    ref_ids = {e['from'] for e in tables.get('edges', []) if e['kind'] == 'ref'}
+    measured = measured_ids(tables)
+    out = []
+    for name, rows in tables.items():
+        if name in SYSTEM_TABLES:
+            continue
+        for r in rows:
+            if 'finding' in r and 'touches' in r:   # a measurement row (see measured_ids) - exempt
+                continue
+            nid = r.get('id', '?')
+            if nid in ref_ids or nid in measured:   # the number already has a drift-checked home
+                continue
+            for col, val in r.items():
+                if col in RESERVED_COLS:
+                    continue
+                m = _NUM_LEAK.search(val)
+                if m:
+                    out.append({'id': nid, 'col': col, 'hit': m.group(0)})
+    return sorted(out, key=lambda w: -len(w['hit']))
+
+
+def weight_summary(tables, slices, prov):
+    """The WEIGHT axis rolled up from the prose-cell detectors - one dict, single-sourced so
+    status and index report the SAME numbers (mirrors classify's status<->index sharing).
+
+    WIRING (drift/rules/orphans/seams) is structure; WEIGHT is prose rot, and a graph green on
+    wiring can be obese on weight - reporting them apart is what stops green-on-wiring reading as
+    green-overall. Five figures: prose_chars = total length of every NON-reserved cell on a
+    non-SYSTEM, non-measurement row (the graph's prose-in-cells MASS, which check/drift never
+    weigh); over_soft = cells past CELL_MAX (cell_warnings); over_hard = canon cells past
+    CELL_HARD_MAX that gate check (cell_errors); leaked = empirical numbers with no drift-checked
+    home (leaked_numbers); split_brain = long cells that ALSO have a body (has_body) - the same
+    rationale committed in two places. Pure AGGREGATION: it adds no detector and moves no gate,
+    and reuses each detector's measurement-row carve-out, so nothing here drifts from A/B/C.
+    """
+    prose_chars = 0
+    for name, rows in tables.items():
+        if name in SYSTEM_TABLES:
+            continue
+        for r in rows:
+            if 'finding' in r and 'touches' in r:   # a measurement row (see measured_ids) - exempt
+                continue
+            prose_chars += sum(len(v) for c, v in r.items() if c not in RESERVED_COLS)
+    warns = cell_warnings(tables, slices, prov)
+    return {'prose_chars': prose_chars,
+            'over_soft': len(warns),
+            'over_hard': len(cell_errors(tables, slices, prov)),
+            'leaked': len(leaked_numbers(tables, slices, prov)),
+            'split_brain': sum(1 for w in warns if w['has_body'])}
 
 
 def lookup(tables, node_id):

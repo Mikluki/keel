@@ -21,7 +21,7 @@ from pathlib import Path
 
 import emit
 import containers
-from render import load_union
+from render import load_union, weight_summary
 from status import classify
 
 
@@ -41,10 +41,12 @@ def main():
     expected = containers.expected_slugs(anchors)
 
     rows, violations = [], []
-    totals = {'nodes': 0, 'planned': 0, 'impl': 0, 'drifted': 0, 'explore': 0, 'dropped': 0}
+    totals = {'nodes': 0, 'planned': 0, 'impl': 0, 'drifted': 0, 'explore': 0, 'dropped': 0,
+              'over_soft': 0}
     for d in dirs:
-        impl, planned, drifted, explore, dropped = classify(
-            load_union(containers.graph_slices(d))[1], repo_root)
+        slices_d, tables_d, prov_d = load_union(containers.graph_slices(d))
+        impl, planned, drifted, explore, dropped = classify(tables_d, repo_root)
+        weight = weight_summary(tables_d, slices_d, prov_d)   # the WEIGHT axis (single-sourced w/ status)
         nodes = len(impl) + len(planned) + len(drifted) + len(explore) + len(dropped)
         totals['nodes'] += nodes
         totals['planned'] += len(planned)
@@ -52,6 +54,7 @@ def main():
         totals['drifted'] += len(drifted)
         totals['explore'] += len(explore)
         totals['dropped'] += len(dropped)
+        totals['over_soft'] += weight['over_soft']
 
         exp_slug, note = expected[d.name]
         if note == 'NO_ANCHOR':
@@ -65,15 +68,17 @@ def main():
 
         rows.append({'slug': d.name, 'anchor': anchors[d.name] or '(none)', 'nodes': nodes,
                      'planned': len(planned), 'impl': len(impl), 'drifted': len(drifted),
-                     'explore': len(explore), 'dropped': len(dropped)})
+                     'explore': len(explore), 'dropped': len(dropped),
+                     'over_soft': weight['over_soft']})
 
     body = emit.toon(
         {'generated': 'DERIVED roll-up - do not hand-edit', 'root': repo_root,
          'containers': len(dirs), 'nodes': totals['nodes'], 'planned': totals['planned'],
          'impl': totals['impl'], 'drifted': totals['drifted'],
-         'explore': totals['explore'], 'dropped': totals['dropped'], 'violations': len(violations)},
-        {'index': (['slug', 'anchor', 'nodes', 'planned', 'impl', 'drifted', 'explore', 'dropped'],
-                   rows)})
+         'explore': totals['explore'], 'dropped': totals['dropped'],
+         'over_soft': totals['over_soft'], 'violations': len(violations)},
+        {'index': (['slug', 'anchor', 'nodes', 'planned', 'impl', 'drifted', 'explore',
+                    'dropped', 'over_soft'], rows)})
 
     if args.toon:
         print(body)
@@ -81,10 +86,12 @@ def main():
         print(f"containers  {len(dirs)}   root={repo_root}")
         print(f"nodes       {totals['nodes']}  ({totals['impl']} impl / "
               f"{totals['planned']} planned / {totals['drifted']} drifted / "
-              f"{totals['explore']} explore / {totals['dropped']} dropped)\n")
+              f"{totals['explore']} explore / {totals['dropped']} dropped)")
+        # the WEIGHT axis in the roll-up: green-on-wiring must not read green overall (P: two axes)
+        print(f"weight      {totals['over_soft']} cells over CELL_MAX (prose rot)\n")
         for r in rows:
             print(f"  {r['slug']:26} {r['impl']:>3}i {r['planned']:>3}p {r['drifted']:>3}d "
-                  f"{r['explore']:>3}e {r['dropped']:>3}x   {r['anchor']}")
+                  f"{r['explore']:>3}e {r['dropped']:>3}x {r['over_soft']:>3}w   {r['anchor']}")
         if not dirs:
             print("  0 containers - no toons/<slug>/ yet")
 

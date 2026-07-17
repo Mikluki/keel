@@ -12,7 +12,7 @@ import pytest
 import emit
 import containers
 from drift import jump_of, resolve
-from render import parse_toon
+from render import load_union, parse_toon, weight_summary
 
 ENGINE = Path(__file__).resolve().parent.parent / 'engine'
 
@@ -147,25 +147,25 @@ def test_bad_count_reaches_cli_user(tmp_path):
 
 
 # ============================================================================
-# card-length warning: soft, non-gating, scoped to `card`
+# prose-cell-length warning: soft, non-gating, every NON-reserved cell
 # ============================================================================
 
-def test_long_card_warns_but_does_not_gate(tmp_path):
+def test_long_cell_warns_but_does_not_gate(tmp_path):
     long = 'x' * 250
     r = run_cli('lint', write_slice(tmp_path, f'slice: t\nn[1]{{id,card}}:\n  a,"{long}"\n'))
-    assert r.returncode == 0, r.stdout + r.stderr        # a prose card is a smell, not an error
+    assert r.returncode == 0, r.stdout + r.stderr        # a prose cell is a smell, not an error
     assert '1 warnings' in r.stdout                        # counted on the summary line (watch reads it)
     assert 'a' in r.stdout and 'chars' in r.stdout
 
 
-def test_short_card_no_warning(tmp_path):
+def test_short_cell_no_warning(tmp_path):
     r = run_cli('lint', write_slice(tmp_path, 'slice: t\nn[1]{id,card}:\n  a,"short"\n'))
     assert r.returncode == 0
     assert '0 warnings' in r.stdout
 
 
-def test_long_card_with_body_flags_split(tmp_path):
-    # a long card that ALSO has a body = the same rationale in two places
+def test_long_cell_with_body_flags_split(tmp_path):
+    # a long cell that ALSO has a body = the same rationale in two places
     (tmp_path / 'bodies').mkdir()
     (tmp_path / 'bodies' / 'a.md').write_text('# a\nprose')
     r = run_cli('lint', write_slice(tmp_path, f'slice: t\nn[1]{{id,card}}:\n  a,"{"y" * 250}"\n'))
@@ -173,13 +173,45 @@ def test_long_card_with_body_flags_split(tmp_path):
     assert 'also has a body' in r.stdout
 
 
-def test_long_finding_in_results_not_a_card_warning(tmp_path):
-    # a result's `finding` is the earned home for a measured number - it must NOT trip the
-    # card check (which is scoped to `card`), even at full length
+def test_long_why_on_decision_warns(tmp_path):
+    # generalization off `card`: the decisions table has NO `card` column - its prose lives in
+    # why/chose/rejected, and any non-reserved cell over the limit must still warn
+    long = 'w' * 250
+    r = run_cli('lint', write_slice(tmp_path, f'slice: t\ndecisions[1]{{id,why}}:\n  d1,"{long}"\n'))
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert '1 warnings' in r.stdout
+    assert 'd1' in r.stdout and 'why' in r.stdout          # the offending column is named
+
+
+def test_two_long_cells_on_one_row_count_twice(tmp_path):
+    # the count is per-CELL, not per-node: one decision with two prose columns over the limit
+    # trips twice
+    long = 'q' * 250
+    r = run_cli('lint', write_slice(
+        tmp_path, f'slice: t\ndecisions[1]{{id,chose,rejected}}:\n  d1,"{long}","{long}"\n'))
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert '2 warnings' in r.stdout
+    assert 'chose' in r.stdout and 'rejected' in r.stdout
+
+
+def test_long_finding_in_results_is_exempt(tmp_path):
+    # a result's `finding` is the earned home for a measured number: the whole measurement row
+    # (the `finding`+`touches` shape, the SAME predicate as measured_ids) is EXEMPT from the
+    # cell check, even at full length - the sidecar is where churny numbers live
     (tmp_path / 'g.graph.toon').write_text('slice: t\nn[1]{id,card}:\n  exp,"an experiment"\n')
     (tmp_path / 'g.results.toon').write_text(
-        f'slice: t-res\nresult[1]{{id,touches,finding}}:\n  r-exp,exp,"{"z" * 300}"\n')
+        f'slice: t-res\nresult[1]{{id,touches,run,finding,data}}:\n'
+        f'  r-exp,exp,run7,"{"z" * 300}",refs.numbers#R7\n')
     r = run_cli('lint', tmp_path)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert '0 warnings' in r.stdout
+
+
+def test_long_touches_value_is_reserved(tmp_path):
+    # `touches` is a RESERVED (structural) column - a long touches list is never prose, so it
+    # must not warn even past the limit
+    long = 'x' * 250
+    r = run_cli('lint', write_slice(tmp_path, f'slice: t\ninv[1]{{id,touches}}:\n  a,"{long}"\n'))
     assert r.returncode == 0, r.stdout + r.stderr
     assert '0 warnings' in r.stdout
 
@@ -192,6 +224,190 @@ def test_results_sidecar_unions_from_dir(tmp_path):
     r = run_cli('lint', tmp_path)
     assert r.returncode == 0, r.stdout + r.stderr
     assert 'unresolved cross-slice refs: 0' in r.stdout       # touches:exp resolved across files
+
+
+# ============================================================================
+# prose-cell HARD gate: a canon cell grown into a body fails check (exit 1)
+# ============================================================================
+
+def test_canon_cell_over_hard_limit_gates_check(tmp_path):
+    # L2 (3000): a cell this long is a body pasted into a table cell - no honest reading is left,
+    # so it is a HARD error (exit 1), not a soft smell. A bare node (no state) is canon.
+    big = 'x' * 3100
+    r = run_cli('lint', write_slice(tmp_path, f'slice: t\nn[1]{{id,card}}:\n  a,"{big}"\n'))
+    assert r.returncode != 0, r.stdout + r.stderr
+    assert 'a.card' in r.stdout                            # the error names the offending cell+col
+    assert 'body in a cell' in r.stdout
+
+
+def test_canon_cell_between_limits_warns_only(tmp_path):
+    # between L1 (200) and L2 (3000): past a one-liner (soft warn) but not yet a body - it must
+    # NOT hard-fail, so the two tiers stay distinct
+    mid = 'x' * 300
+    r = run_cli('lint', write_slice(tmp_path, f'slice: t\nn[1]{{id,card}}:\n  a,"{mid}"\n'))
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert '1 warnings' in r.stdout                        # soft tier still fires
+    assert 'errors: 0' in r.stdout                         # ... but no hard error
+
+
+def test_dropped_cell_over_hard_limit_warns_not_gates(tmp_path):
+    # the hard tier is CANON-only: a dropped node still earns the soft warn (nothing is invisible)
+    # but must not gate check - a rejected idea is not held to the shipping bar
+    big = 'y' * 3100
+    r = run_cli('lint', write_slice(
+        tmp_path, f'slice: t\nn[1]{{id,state,card}}:\n  a,dropped,"{big}"\n'))
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert '1 warnings' in r.stdout                        # soft tier fires for every state
+    assert 'errors: 0' in r.stdout
+
+
+def test_explore_cell_over_hard_limit_does_not_gate(tmp_path):
+    # explore is provisional - also exempt from the hard gate (it still gets the soft warn)
+    big = 'z' * 3100
+    r = run_cli('lint', write_slice(
+        tmp_path, f'slice: t\nn[1]{{id,state,card}}:\n  a,explore,"{big}"\n'))
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert 'errors: 0' in r.stdout
+
+
+def test_measurement_finding_over_hard_limit_is_exempt(tmp_path):
+    # the measurement-row carve-out holds at the hard tier too: a long `finding` (the
+    # finding+touches shape, the SAME predicate as measured_ids) is the sidecar's earned home
+    # for a number, never a gated cell
+    (tmp_path / 'g.graph.toon').write_text('slice: t\nn[1]{id,card}:\n  exp,"an experiment"\n')
+    (tmp_path / 'g.results.toon').write_text(
+        f'slice: t-res\nresult[1]{{id,touches,run,finding,data}}:\n'
+        f'  r-exp,exp,run7,"{"z" * 3100}",refs.numbers#R7\n')
+    r = run_cli('lint', tmp_path)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert 'errors: 0' in r.stdout
+
+
+# ============================================================================
+# leaked numbers: a measured value stranded in prose (no drift-checked home)
+# ============================================================================
+
+def test_number_in_prose_cell_leaks(tmp_path):
+    # a measured number pasted into a card on a node with NO ref and NO finding has no
+    # drift-checked home - it rots green, so it is flagged (soft, non-gating)
+    r = run_cli('lint', write_slice(
+        tmp_path, 'slice: t\nn[1]{id,card}:\n  a,"KL falls 4.75 nats"\n'))
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert 'leaks (1)' in r.stdout
+    assert '4.75' in r.stdout and 'card' in r.stdout    # the matched token + column are named
+
+
+def test_number_on_refd_node_does_not_leak(tmp_path):
+    # exempt-if-ref: a node with a `ref` edge already has a drift-checked home, so its number
+    # is not flagged - a deliberate trade to keep the warning credible
+    r = run_cli('lint', write_slice(
+        tmp_path,
+        'slice: t\nn[1]{id,card}:\n  a,"KL falls 4.75 nats"\n\n'
+        'edges[1]{kind,from,to}:\n  ref,a,mod.py#KL\n'))
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert 'leaks: 0' in r.stdout
+
+
+def test_number_on_measured_node_does_not_leak(tmp_path):
+    # a node some finding row `touches` is measured (measured_ids) - the sidecar is the number's
+    # home, so a value in its card is not a leak
+    (tmp_path / 'g.graph.toon').write_text(
+        'slice: t\nn[1]{id,card}:\n  a,"KL falls 4.75 nats"\n')
+    (tmp_path / 'g.results.toon').write_text(
+        'slice: t-res\nresult[1]{id,touches,finding}:\n  r-a,a,"KL = 4.75 nats"\n')
+    r = run_cli('lint', tmp_path)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert 'leaks: 0' in r.stdout
+
+
+def test_measurement_row_finding_number_is_exempt(tmp_path):
+    # the measurement row itself (finding+touches) is where numbers correctly live - its own
+    # `finding` value is never a leak
+    (tmp_path / 'g.graph.toon').write_text('slice: t\nn[1]{id,card}:\n  exp,"an experiment"\n')
+    (tmp_path / 'g.results.toon').write_text(
+        'slice: t-res\nresult[1]{id,touches,finding}:\n  r-exp,exp,"KL falls 4.75 nats"\n')
+    r = run_cli('lint', tmp_path)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert 'leaks: 0' in r.stdout
+
+
+def test_bare_integer_does_not_leak(tmp_path):
+    # bare integers are NOT flagged - _NUM_LEAK matches only empirical shapes (decimals, ratios,
+    # sci-notation, ~/±); bare-int matching is where false positives explode
+    r = run_cli('lint', write_slice(
+        tmp_path, 'slice: t\nn[1]{id,card}:\n  a,"pinned at 25"\n'))
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert 'leaks: 0' in r.stdout
+
+
+def test_leak_is_warn_only_never_gates(tmp_path):
+    # warn-only: even a clear leak (a ratio, in a `why` cell - generalized off card) keeps check
+    # green; a heuristic must never gate
+    r = run_cli('lint', write_slice(
+        tmp_path, 'slice: t\nn[1]{id,why}:\n  a,"measured 13/20 runs converged"\n'))
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert 'leaks (1)' in r.stdout
+    assert '13/20' in r.stdout
+
+
+# ============================================================================
+# weight axis: WEIGHT rolled up once, reported apart from WIRING (kill the false-green)
+# ============================================================================
+
+def test_weight_summary_rolls_up_the_axis(tmp_path):
+    # one dict aggregating A/B/C, single-sourced for status AND index: a split-brain cell (a
+    # long card that ALSO has a body), a leaked ratio, and a long why
+    card_sb, why_sb = 'x' * 250, 'short'
+    card_lk, why_lk = 'measured 13/20 runs', 'w' * 250
+    (tmp_path / 'bodies').mkdir()
+    (tmp_path / 'bodies' / 'sb.md').write_text('# sb\nrationale lives here too\n')
+    write_slice(tmp_path, 'slice: t\nn[2]{id,card,why}:\n'
+                          f'  sb,"{card_sb}","{why_sb}"\n'
+                          f'  lk,"{card_lk}","{why_lk}"\n')
+    slices, tables, prov = load_union([tmp_path / 'fix.graph.toon'])
+    w = weight_summary(tables, slices, prov)
+    assert w['over_soft'] == 2          # sb.card and lk.why both past CELL_MAX
+    assert w['over_hard'] == 0          # neither reaches the hard tier
+    assert w['leaked'] == 1             # the 13/20 ratio, unref'd + unmeasured
+    assert w['split_brain'] == 1        # sb is long AND has a body; lk (no body) is not
+    assert w['prose_chars'] == len(card_sb) + len(why_sb) + len(card_lk) + len(why_lk)
+
+
+def test_status_reports_weight_axis_and_verdict(tmp_path):
+    # wiring clean (the node's ref resolves) but a cell is heavy: the WEIGHT section carries the
+    # count and the terminal verdict is the weight branch, never a wiring-only all-clear
+    (tmp_path / 'lib.py').write_text('def built(): pass\n')
+    write_slice(tmp_path, f'slice: t\nn[1]{{id,card}}:\n  a,"{"x" * 250}"\n\n'
+                          'edges[1]{kind,from,to}:\n  ref,a,lib.py\n')
+    r = run_cli('status', tmp_path, '--code-root', tmp_path)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert 'WEIGHT (prose rot)' in r.stdout             # the axis is its own section
+    assert 'over soft    1' in r.stdout                 # with the count
+    assert 'wiring clean; WEIGHT' in r.stdout           # verdict names the second axis
+    assert 'all canon nodes implemented' not in r.stdout  # the old false-green is gone
+
+
+def test_status_clean_on_both_axes(tmp_path):
+    # short cell, ref resolves -> the verdict clears BOTH axes explicitly (not just wiring)
+    (tmp_path / 'lib.py').write_text('def built(): pass\n')
+    write_slice(tmp_path, 'slice: t\nn[1]{id,card}:\n  a,"short"\n\n'
+                          'edges[1]{kind,from,to}:\n  ref,a,lib.py\n')
+    r = run_cli('status', tmp_path, '--code-root', tmp_path)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert 'clean on both axes' in r.stdout
+
+
+def test_index_rollup_shows_weight(tmp_path):
+    # the repo board carries weight too: a per-container `Nw` figure and a repo total, so an
+    # obese container is visible in the roll-up (slug 'lib' == flatten('lib.py'), no violation)
+    cont = tmp_path / 'toons' / 'lib'
+    cont.mkdir(parents=True)
+    (cont / 'lib.graph.toon').write_text(
+        f'slice: t\nrefs: logic: lib.py\nn[1]{{id,card}}:\n  a,"{"x" * 250}"\n')
+    r = run_cli('index', tmp_path / 'toons', '--check')
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert '1w' in r.stdout                             # per-container weight figure
+    assert 'weight      1' in r.stdout                  # repo total line
 
 
 # ============================================================================
