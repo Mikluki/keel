@@ -473,6 +473,63 @@ def test_membrane_pattern_avoids_false_positives(tmp_path):
     assert '0 membrane leak' in r.stdout
 
 
+def test_body_path_in_code_comment_is_a_leak(tmp_path):
+    # a `bodies/<id>.md` path cited from code is a back-reference (caught regardless of id)
+    _slice_and_code(tmp_path, 'def f():\n    pass  # rationale in bodies/a.md\n')
+    r = run_cli('drift', tmp_path, '--code-root', tmp_path)
+    assert r.returncode == 1, r.stdout + r.stderr
+    assert 'MEMBRANE' in r.stdout
+
+
+def test_bare_body_filename_matching_a_node_is_a_leak(tmp_path):
+    # a bare `<id>.md` whose stem is a real node id = an agent citing that node's body file
+    write_slice(tmp_path, 'slice: t\nn[1]{id,card}:\n  ratelimit,"caps requests"\n')
+    (tmp_path / 'lib.py').write_text('def f():\n    pass  # see ratelimit.md for the why\n')
+    r = run_cli('drift', tmp_path, '--code-root', tmp_path)
+    assert r.returncode == 1, r.stdout + r.stderr
+    assert 'MEMBRANE' in r.stdout
+
+
+def test_unknown_md_filename_is_not_a_leak(tmp_path):
+    # a .md whose stem is NOT a node id (README, external docs) must not trip the guard
+    _slice_and_code(tmp_path, '# see README.md and docs/guide.md\ndef f(): pass\n')
+    r = run_cli('drift', tmp_path, '--code-root', tmp_path)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert '0 membrane leak' in r.stdout
+
+
+def test_unrefd_id_mentioned_in_code_warns_not_gates(tmp_path):
+    # an unref'd, hyphenated node id (a decision) named in a comment is a SOFT smell: warned,
+    # never gated (it could be a coincidental kebab word)
+    write_slice(tmp_path, 'slice: t\nn[1]{id,state,card}:\n  D-cutoff,canon,"pin the cutoff"\n')
+    (tmp_path / 'lib.py').write_text('def f():\n    pass  # per D-cutoff we clamp here\n')
+    r = run_cli('drift', tmp_path, '--code-root', tmp_path)
+    assert r.returncode == 0, r.stdout + r.stderr        # warn-only, never gates
+    assert '1 warn' in r.stdout
+    assert 'membrane (warn)' in r.stdout
+
+
+def test_refd_id_in_code_does_not_warn(tmp_path):
+    # a ref'd node's id is its code symbol's neighbor - a bare mention is expected, so it is
+    # excluded from the warn (only unref'd ids are suspicious)
+    write_slice(tmp_path, 'slice: t\nn[1]{id,card}:\n  rate-limiter,"caps rps"\n\n'
+                          'edges[1]{kind,from,to}:\n  ref,rate-limiter,lib.py\n')
+    (tmp_path / 'lib.py').write_text('def rate_limiter():\n    pass  # the rate-limiter path\n')
+    r = run_cli('drift', tmp_path, '--code-root', tmp_path)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert '0 warn' in r.stdout
+
+
+def test_nonhyphenated_unrefd_id_does_not_warn(tmp_path):
+    # a single-word unref'd id (could be a common code word) is NOT warned - the scope is
+    # hyphenated ids, which cannot be a code identifier
+    write_slice(tmp_path, 'slice: t\nn[1]{id,card}:\n  caching,"cache results"\n')
+    (tmp_path / 'lib.py').write_text('def f():\n    pass  # caching happens here\n')
+    r = run_cli('drift', tmp_path, '--code-root', tmp_path)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert '0 warn' in r.stdout
+
+
 # ============================================================================
 # output is FULL by default; --brief opts into truncation
 # ============================================================================

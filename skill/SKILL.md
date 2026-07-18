@@ -185,8 +185,9 @@ its `=` means ref'd; this command and `check` do the drift-checking).
 - The graph owns intent/structure/decisions/invariants; code owns logic; the graph holds
   `ref -> code`, never a copy of the logic. A logic-only change touches no graph node.
 - The reference is ONE-WAY: the graph names code, code NEVER names the graph. Do not write
-  `keel`, a node/decision id, a `.graph.toon` path, or a `toons/` reference into code or a
-  code comment - `check` FAILS on it. A back-reference is un-checked (a renamed node silently
+  `keel`, a node/decision id, a `.graph.toon` or `bodies/<id>.md` path, or a `toons/`
+  reference into code or a code comment - `check` FAILS on the path/keyword forms and WARNS
+  on a bare intent-id. A back-reference is un-checked (a renamed node silently
   lies) and it seeds design prose leaking into comments where nothing checks it; the `ref` edge
   is the only link and it lives in the graph. Isolation (the sibling keel worktree) keeps the
   graph off the code tree for the same reason - the membrane is structural, not a plea.

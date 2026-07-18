@@ -10,10 +10,10 @@ graph diff, a rename fails the gate. Resolution uses ripgrep with Rust/Python
 definition patterns, so the agent never greps by hand and a renamed or missing
 symbol FAILS the gate instead of silently rotting the design.
 
-It also guards the REVERSE direction (membrane_leaks): the reference is one-way, so
-code must never name the graph back. A `.graph.toon` path, a `toons/` reference, or a
-`keel node/decision ...` comment in the code tree is an un-checked back-reference that
-rots green and seeds design prose leaking into comments - it FAILS the gate too.
+It also guards the REVERSE direction (membrane_leaks): the reference is one-way, so code
+must never name the graph back. A `.graph.toon` path, a `toons/` or `bodies/<id>.md`
+reference, or a `keel node/decision ...` comment in code is an un-checked back-reference
+that rots green and seeds design prose into comments - it FAILS the gate too.
 
     python drift.py *.graph.toon --code-root ../my-crate
     python drift.py toons/<slug> --code-root ../my-crate --toon     # structured body for an agent
@@ -45,12 +45,14 @@ PAT = {'.rs': rust_pat, '.py': py_pat}
 RG_LANG = {'.rs': 'rust', '.py': 'py'}
 
 # The reverse membrane. keel refs code ONE WAY (the ref edges above); code must
-# never name the graph back. A `.graph.toon` path, a `toons/` reference, or a
-# `keel node/decision ...` comment in code is an un-checked back-reference: it rots
-# green (a renamed node silently lies) and normalizes design prose leaking into
-# comments where nothing checks it. A hit in CODE is graph-only vocabulary = a leak.
+# never name the graph back. A `.graph.toon` path, a `toons/` or `bodies/<id>.md`
+# reference, or a `keel node/decision ...` comment in code is an un-checked back-
+# reference: it rots green (a renamed node silently lies) and normalizes design
+# prose leaking into comments where nothing checks it. A hit in CODE = a leak.
+# (A bare `<id>.md` naming a known node's body is added dynamically in membrane_leaks.)
 MEMBRANE_PAT = (r'\.(graph|views|results)\.toon'
                 r'|\btoons/'
+                r'|\bbodies/[\w-]+\.md'
                 r'|\bkeel:'
                 r'|\bkeel (node|graph|decision|invariant|spec|slice|container|slug)')
 
@@ -68,13 +70,30 @@ def rg(pattern, *targets, extra=()):
     return [ln for ln in out.stdout.splitlines() if ln.strip()]
 
 
-def membrane_leaks(root):
-    """Every code->graph back-reference under `root` (file:line:content); the reverse of
-    drift. drift checks graph->code refs EXIST; this checks code->graph refs do NOT.
-    Split-repo puts the graph off the code tree, so any hit is a leak; co-located, the
-    toons/ tree and keel artifacts are excluded so only a real source leak matches.
+def membrane_leaks(root, ids=()):
+    """Every code->graph back-reference under `root` (file:line:content) - reverse of
+    drift. drift checks graph->code refs EXIST; this checks code->graph do NOT.
+    `ids` adds a bare `<id>.md` clause for an agent citing a node's body file, matched
+    against real ids, so a plain README.md never trips it. Split-repo keeps the graph
+    off the code tree; co-located, keel artifacts and the toons/ tree are excluded.
     """
-    return rg(MEMBRANE_PAT, root, extra=('-i', *MEMBRANE_EXCLUDE))
+    pat = MEMBRANE_PAT
+    if ids:
+        pat = f"{pat}|\\b({'|'.join(re.escape(i) for i in sorted(ids))})\\.md"
+    return rg(pat, root, extra=('-i', *MEMBRANE_EXCLUDE))
+
+
+def membrane_warnings(root, ids):
+    """Bare mentions in code of an unref'd node's id (file:line:content) - a SOFT smell.
+    A ref'd node's id IS a code symbol; an unref'd node (a decision/invariant) names
+    nothing in code, so its bare id in a comment is likely a graph citation. Scoped by
+    the caller to hyphenated ids, which cannot be a code identifier - still warn-only
+    (a kebab string or URL can coincide, and a heuristic must never gate).
+    """
+    if not ids:
+        return []
+    alt = '|'.join(re.escape(i) for i in sorted(ids))
+    return rg(rf'\b({alt})\b', root, extra=('-i', *MEMBRANE_EXCLUDE))
 
 
 def resolve(target, root):
@@ -167,19 +186,24 @@ def main():
         rows.append({'status': status, 'state': st, 'from': e['from'], 'to': e['to'],
                      'evidence': evidence_str(status, ev, args.full)})
 
-    leaks = membrane_leaks(root)   # reverse membrane: code must never name the graph
+    leaks = membrane_leaks(root, set(state_by))   # reverse membrane (hard)
+    refd = {e['from'] for e in refs}
+    soft_ids = {i for i in set(state_by) - refd if '-' in i}   # unref'd + hyphenated
+    warns = [w for w in membrane_warnings(root, soft_ids) if w not in set(leaks)]
     n_ok = sum(1 for r in rows if r['status'] == 'OK')
     names = ', '.join(n for n, _, _ in slices)
     if args.toon:
         print(emit.toon(
             {'slices': names, 'refs': len(refs), 'resolved': n_ok,
-             'failing': bad, 'muted': muted, 'leaks': len(leaks), 'root': root},
+             'failing': bad, 'muted': muted, 'leaks': len(leaks), 'warns': len(warns),
+             'root': root},
             {'refs': (['status', 'state', 'from', 'to', 'evidence'], rows),
-             'membrane': (['hit'], [{'hit': ln} for ln in leaks])}))
+             'membrane': (['hit'], [{'hit': ln} for ln in leaks]),
+             'membrane_warn': (['hit'], [{'hit': ln} for ln in warns])}))
     else:
         print(f"drift [{names}]: {len(refs)} ref edges, {n_ok} resolved, "
               f"{bad} failing (canon), {muted} muted (explore/dropped), "
-              f"{len(leaks)} membrane leak(s), root={root}")
+              f"{len(leaks)} membrane leak(s), {len(warns)} warn(s), root={root}")
         if not refs:
             print("  0 ref edges - no graph node points at code yet")
         for r in rows:
@@ -193,6 +217,13 @@ def main():
                 print(f"     x {ln}")
             if not args.full and len(leaks) > 12:
                 print(f"     (+{len(leaks) - 12} more; --full)")
+        if warns:
+            print("  membrane (warn): an unref'd node's id appears in code - likely a graph "
+                  "citation (use an edge), or a coincidental word:")
+            for ln in (warns if args.full else warns[:12]):
+                print(f"     ? {ln}")
+            if not args.full and len(warns) > 12:
+                print(f"     (+{len(warns) - 12} more; --full)")
 
     slice_args = ' '.join(containers.display_arg(a) for a in args.positional) or '.'
     if bad or leaks:
